@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "AdBrain Feed Manager",
+  "icons": {
+    "16": "images/icon16.png",
+    "32": "images/icon32.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "version": "1.0",
+  "description": "Validate and optimize your Google Shopping feeds with AI-powered insights",
+  "permissions": [
+    "identity",
+    "identity.email",
+    "storage",
+    "tabs",
+    "https://shoppingcontent.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "364850030543-kn12acreg0pokqdo6f524ul1dcj56vlt.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/content",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
+  },
+  "action": {
+    "default_popup": "popup2.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    },
+    "default_title": "AdBrain Feed Manager"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "host_permissions": [
+    "https://www.googleapis.com/*",
+    "https://shoppingcontent.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/background.js",
+    "type": "module"
+  }
+}
