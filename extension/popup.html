@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AdBrain</title>
+  <style>
+    body {
+      width: 600px;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    .pathSelection {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .pathButton {
+      flex: 1;
+      padding: 20px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    #uploadSection, #backButton {
+      display: none;
+    }
+    .backButton {
+      padding: 8px 16px;
+      background-color: #666;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    #selectedPath {
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>AdBrain</h1>
+  <p>Product feed management tool</p>
+  
+  <div id="authContainer">
+    <button id="loginButton">Login with Google</button>
+    <div id="status"></div>
+  </div>
+
+  <button id="backButton" class="backButton">Back to Selection</button>
+  <div id="selectedPath"></div>
+
+  <div id="pathSelection" class="pathSelection">
+    <button class="pathButton" id="shoppingPath">Shopping Feed Optimization</button>
+    <button class="pathButton" id="seoPath">SEO Feed Optimization</button>
+  </div>
+
+  <div id="seoLengthOptions" style="display: none;">
+    <h3>Choose SEO Description Length:</h3>
+    <button id="shortSEO" class="option-button">Search Result Snippet (200 chars)</button>
+    <button id="longSEO" class="option-button">Full SEO Description (1500 chars)</button>
+</div>
+
+<div id="uploadSection">
+  <div class="info-section">
+    <!-- This section will be populated by the JavaScript -->
+  </div>
+
+  <input type="file" id="csvFile" accept=".csv" />
+  <button id="uploadButton">Preview Feed</button>
+  <button id="generateDescriptions">Generate Descriptions</button>
+  <div id="fileInfo"></div>
+  <div id="uploadStatus"></div>
+  <div id="previewArea"></div>
+</div>
+  <script src="auth.js" type="module"></script>
+  <script src="upload.js" type="module"></script>
+</body>
+</html>

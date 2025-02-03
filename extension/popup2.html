@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AdBrain</title>
+<style>
+    body {
+        width: 300px;
+        padding: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        text-align: center;
+    }
+    .logo-container {
+        padding: 10px 0;
+    }
+    .logo {
+        width: 200px;  /* Increased width */
+        height: 111px; /* Maintained aspect ratio (200 * 832/1492) */
+        margin: 0 auto 15px;
+    }
+    .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain; /* Changed to contain to prevent cropping */
+        border-radius: 8px;  /* Slight rounding of corners instead of circle */
+    }
+        h1 {
+            font-size: 24px;
+            margin: 20px 0 10px;
+        }
+        .welcome-text {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.4;
+        }
+        .login-button {
+            background-color: #4285f4;
+            color: white;
+            padding: 12px 0;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+        }
+        .login-button:hover {
+            background-color: #3367d6;
+        }
+        #status {
+            margin-top: 15px;
+            color: #666;
+        }
+        .open-dashboard {
+            display: none; /* Hidden by default */
+            background-color: #34A853;
+            color: white;
+            padding: 12px 0;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 500;
+            margin-top: 15px;
+            transition: background-color 0.3s ease;
+        }
+        .open-dashboard:hover {
+            background-color: #2E8B47;
+        }
+    </style>
+</head>
+<body>
+<div class="logo-container">
+    <div class="logo">
+        <img src="images/logo-full.png" alt="AdBrain Logo" width="200" height="111">
+    </div>
+</div>
+    <h1>Welcome to AdBrain!</h1>
+    <p class="welcome-text">Generate high-performing product titles and descriptions, validate feeds, and upload to Google Merchant Center in minutes. Save time. Boost performance. Simplify your workflow.</p>
+    <button id="loginButton" class="login-button">Sign in with Google</button>
+    <button id="openDashboard" class="open-dashboard">Open Dashboard</button>
+    <div id="status"></div>
+
+    <!-- Load dependencies in correct order -->
+    <script src="lib/gmc/api.js"></script>
+    <script src="auth.js"></script>
+    <script>
+        // After successful authentication in auth.js, show the dashboard button
+        function showDashboardButton() {
+            document.getElementById('openDashboard').style.display = 'block';
+            document.getElementById('loginButton').style.display = 'none';
+        }
+
+        // Handle dashboard button click
+        document.getElementById('openDashboard').addEventListener('click', function() {
+            chrome.tabs.create({
+                url: chrome.runtime.getURL('src/popup/popup.html')
+            });
+        });
+
+        // Check if user is already authenticated
+        if (localStorage.getItem('isAuthenticated') === 'true') {
+            showDashboardButton();
+        }
+    </script>
+</body>
+</html>

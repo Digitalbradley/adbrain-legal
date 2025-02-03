@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AdBrain Dashboard</title>
+    <style>
+        :root {
+            --adbrain-dark-blue: #2B3A4D;    /* Dark navigation area */
+            --adbrain-green: #4CAF50;        /* Brand accent */
+            --background-light: #f5f7fa;     /* Light gray main area */
+            --white: #ffffff;                /* Content boxes */
+            --text-dark: #1a2234;
+            --text-light: #ffffff;
+            --header-height: 64px;           /* Top header height */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .top-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--header-height);
+            background-color: var(--adbrain-dark-blue);
+            color: var(--text-light);
+            display: flex;
+            align-items: center;
+            padding: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+        }
+
+        .brand-header {
+            display: flex;
+            align-items: center;
+            margin: 20px;
+            height: 60px;
+        }
+
+        .brand-header img {
+            height: 50px;
+            width: auto;
+            margin-right: 20px;
+            object-fit: contain;
+        }
+
+        .brand-header span {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: 100vh;
+            padding-top: var(--header-height);
+        }
+
+        .left-panel {
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            bottom: 0;
+            width: 300px;
+            background-color: var(--adbrain-dark-blue);
+            padding: 30px;
+            padding-right: 50px;
+            padding-left: 20px;
+            color: var(--text-light);
+            overflow-y: auto;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .right-panel {
+            position: fixed;
+            left: 300px;
+            right: 0;
+            top: var(--header-height);
+            bottom: 0;
+            background-color: var(--background-light);
+            padding: 30px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+
+        .content-card {
+            background: var(--white);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            width: calc(100% - 40px);
+        }
+
+        .pathButton {
+            width: 80%;
+            padding: 12px 20px;
+            margin: 10px;
+            margin-left: 15px;
+            border: none;
+            border-radius: 4px;
+            background: var(--adbrain-green);
+            color: var(--white);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: block;
+        }
+
+        .pathButton:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-area {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 24px;
+            margin: 20px 0;
+            margin-left: 15px;
+            text-align: center;
+            transition: all 0.2s ease;
+            width: 80%;
+            box-sizing: border-box;
+        }
+
+        .upload-area:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--adbrain-green);
+        }
+
+        .sidebar-description {
+            color: var(--text-light);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 25px;
+            padding: 0 20px;
+        }
+
+        .sidebar-description h3 {
+            margin-bottom: 10px;
+        }
+
+        .sidebar-description ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin-top: 10px;
+        }
+
+        .sidebar-description li {
+            margin-bottom: 8px;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .sidebar-description li:before {
+            content: "\2192";
+            position: absolute;
+            left: 0;
+            color: var(--adbrain-green);
+            font-size: 14px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: var(--white);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .data-table th {
+            background: var(--adbrain-dark-blue);
+            color: var(--white);
+            padding: 16px;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .data-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--background-light);
+        }
+.back-button {
+    background: none;
+    border: none;
+    color: var(--adbrain-green);    /* Change to green to match buttons */
+    font-size: 16px;                /* Make text larger */
+    cursor: pointer;
+    padding: 10px 15px;             /* Add more padding */
+    margin: 0 0 20px 15px;
+    display: block;
+    font-weight: 500;               /* Make text bolder */
+    transition: opacity 0.2s ease;   /* Smooth hover effect */
+}
+
+.back-button:hover {
+    opacity: 0.8;
+}
+
+.back-button:before {
+    content: "\2190";    /* Left arrow unicode */
+    margin-right: 8px;
+    font-size: 18px;
+}
+    </style>
+</head>
+<body>
+    <header class="top-header">
+        <div class="brand-header">
+            <img src="images/logo.jpg" alt="AdBrain Logo">
+            <span>AdBrain</span>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+  <div class="left-panel">
+             <div id="pathSelection">
+                <div class="sidebar-description">
+                    Welcome to AdBrain. This is your dashboard. Choose your optimization path below to get started. Upload your product feed CSV file and let AdBrain help optimize your descriptions for better performance.
+                </div>
+
+                <button class="pathButton" id="shoppingPath">Shopping Feed Optimization</button>
+                <button class="pathButton" id="seoPath">SEO Feed Optimization</button>
+            </div>
+            
+            <div id="seoLengthOptions" style="display: none;">
+                <h3>Choose SEO Description Length:</h3>
+                <button id="shortSEO" class="pathButton">Search Result Snippet (200 chars)</button>
+                <button id="longSEO" class="pathButton">Full SEO Description (1500 chars)</button>
+            </div>
+
+            <div id="uploadSection">
+                <div class="sidebar-description">
+                    <h3>File Requirements:</h3>
+                    <p>Your CSV should include:</p>
+                    <ul>
+                        <li>Product Title</li>
+                        <li>Description</li>
+                        <li>Price</li>
+                        <li>Brand</li>
+                    </ul>
+                </div>
+                <div class="upload-area">
+                    <input type="file" id="csvFile" accept=".csv" />
+                    <p>Drag & drop your CSV file here or click to browse</p>
+                </div>
+                <button id="uploadButton" class="pathButton">Preview Feed</button>
+                <button id="generateDescriptions" class="pathButton">Generate Descriptions</button>
+                <div id="fileInfo"></div>
+                <div id="uploadStatus"></div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="content-card">
+                <h2>Preview & Results</h2>
+                <div id="previewArea"></div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="upload.js"></script>
+</body>
+</html>
