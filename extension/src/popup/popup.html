@@ -20,9 +20,9 @@
                 <div class="file-input-wrapper">
                     <input type="file" id="fileInput" accept=".csv" class="file-input"/>
                 </div>
-                <button id="previewButton" class="modern-button">Preview Feed</button>
-                <button id="exportButton" class="modern-button">Export Feed</button>
-                <select id="mainDropdown" class="file-input">
+                <button id="previewFeed" class="modern-button">Preview Feed</button>
+                <button id="exportFeed" class="modern-button">Export Feed</button>
+                <select id="mainDropdown" class="modern-select">
                     <option value="" disabled selected>Choose Analysis:</option>
                     <optgroup label="Feed Analysis">
                         <option value="analyze-feed">Basic Feed Analysis</option>
@@ -32,26 +32,23 @@
                 </select>
                 <button id="testGMCAuth" class="modern-button">Test GMC Auth</button>
                 <button id="validateGMC" class="modern-button">Validate with GMC <span class="premium-badge">PRO</span></button>
-                <button id="info" class="info-button">i</button>
             </div>
         </div>
 
         <div class="floating-scroll">
             <div class="scroll-content">
-                <div class="scroll-spacer"></div>
+                <div class="scroll-track">
+                    <div class="scroll-thumb"></div>
+                </div>
             </div>
         </div>
 
         <div class="data-container">
-            <div class="data-content">
-                <div id="previewContent">
-                    <!-- Table content will be inserted here -->
-                </div>
-            </div>
+            <div id="previewContent"></div>
         </div>
     </div>
 
-    <!-- Add back the footer -->
+    <!-- Footer -->
     <footer class="main-footer">
         <div class="footer-container">
             <div class="footer-section">
@@ -95,7 +92,7 @@
 
         <div class="footer-bottom">
             <div class="footer-legal">
-                <span>&copy; 2025 Voice First Analytics&trade; with Sofie AI. All rights reserved.</span>
+                <span>&copy; 2025 Voice First Analytics™ with Sofie AI. All rights reserved.</span>
                 <div class="legal-links">
                     <a href="#">Privacy Policy</a>
                     <a href="#">Terms of Service</a>
@@ -106,15 +103,13 @@
     </footer>
 
     <!-- Load dependencies first -->
+    <script src="../../lib/ui/loading.js"></script>
     <script src="../../lib/gmc/api.js"></script>
     <script src="../../lib/gmc/validator.js"></script>
     <script src="../../lib/validation/rules.js"></script>
     <script src="../../lib/validation/analyzer.js"></script>
     <script src="../../lib/ui/errors.js"></script>
-    <script src="../../lib/ui/loading.js"></script>
     <script src="../../lib/ui/tables.js"></script>
-    
-    <!-- Load main application script -->
     <script src="popup.js"></script>
 </body>
 </html>

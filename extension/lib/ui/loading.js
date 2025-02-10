@@ -1,35 +1,36 @@
 class LoadingManager {
     constructor() {
-        this.loadingOverlay = null;
-        this.loadingMessage = null;
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'loading-overlay';
+        
+        this.content = document.createElement('div');
+        this.content.className = 'loading-content';
+        
+        this.spinner = document.createElement('div');
+        this.spinner.className = 'loading-spinner';
+        
+        this.text = document.createElement('div');
+        this.text.className = 'loading-text';
+        
+        this.content.appendChild(this.spinner);
+        this.content.appendChild(this.text);
+        this.overlay.appendChild(this.content);
+        
+        document.body.appendChild(this.overlay);
     }
 
     showLoading(message = 'Loading...') {
-        if (!this.loadingOverlay) {
-            this.loadingOverlay = document.createElement('div');
-            this.loadingOverlay.className = 'loading-overlay';
-            
-            this.loadingMessage = document.createElement('div');
-            this.loadingMessage.className = 'loading-message';
-            this.loadingOverlay.appendChild(this.loadingMessage);
-        }
-        
-        this.loadingMessage.textContent = message;
-        document.body.appendChild(this.loadingOverlay);
+        this.text.textContent = message;
+        this.overlay.style.display = 'flex';
     }
 
-    updateLoading(message) {
-        if (this.loadingMessage) {
-            this.loadingMessage.textContent = message;
-        }
+    updateLoadingText(message) {
+        this.text.textContent = message;
     }
 
     hideLoading() {
-        if (this.loadingOverlay && this.loadingOverlay.parentNode) {
-            this.loadingOverlay.parentNode.removeChild(this.loadingOverlay);
-        }
+        this.overlay.style.display = 'none';
     }
 }
 
-// Make it globally available
 window.LoadingManager = LoadingManager;

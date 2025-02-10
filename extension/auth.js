@@ -4,14 +4,14 @@ document.getElementById('loginButton').addEventListener('click', async () => {
     try {
         statusDiv.textContent = 'Authenticating...';
         
-        // Get auth token
         const token = await new Promise((resolve, reject) => {
             chrome.identity.getAuthToken({ 
                 interactive: true,
                 scopes: ['https://www.googleapis.com/auth/content']
             }, (token) => {
                 if (chrome.runtime.lastError) {
-                    reject(chrome.runtime.lastError);
+                    console.error('Auth Error:', chrome.runtime.lastError);
+                    reject(new Error(chrome.runtime.lastError.message));
                 } else {
                     resolve(token);
                 }
@@ -30,8 +30,7 @@ document.getElementById('loginButton').addEventListener('click', async () => {
         
     } catch (error) {
         console.error('Login failed:', error);
-        statusDiv.textContent = 'Authentication failed. Please try again.';
-        // Clear authentication state if it failed
+        statusDiv.textContent = `Authentication failed: ${error.message}`;
         localStorage.removeItem('isAuthenticated');
     }
 });

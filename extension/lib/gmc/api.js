@@ -2,7 +2,7 @@ class GMCApi {
     constructor() {
         this.API_BASE_URL = 'https://shoppingcontent.googleapis.com/content/v2.1';
         this.OAUTH_SCOPE = 'https://www.googleapis.com/auth/content';
-        this.CLIENT_ID = 'YOUR_NEW_CLIENT_ID.apps.googleusercontent.com'; // Update this
+        this.CLIENT_ID = '364850030543-kn12acreg0pokqdo6f524ul1dcj56vlt.apps.googleusercontent.com';
         this.merchantId = null;
         this.accessToken = null;
         this.isAuthenticated = false;

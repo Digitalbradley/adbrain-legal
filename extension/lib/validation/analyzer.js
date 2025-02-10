@@ -1,16 +1,14 @@
 class FeedAnalyzer {
     constructor(tableManager) {
         this.tableManager = tableManager;
-        this.analysisRules = {
+        this.rules = {
             title: {
-                minLength: 20,
-                maxLength: 70,
-                message: "Title length (%s) must be at least 20 characters"
+                minLength: 70,
+                maxLength: 150
             },
             description: {
-                minLength: 70,
-                maxLength: 250,
-                message: "Description length (%s) must be at least 70 characters"
+                minLength: 150,
+                maxLength: 5000
             }
         };
         
@@ -201,20 +199,19 @@ class FeedAnalyzer {
         }
 
         // Get headers from the table
-        const headers = Array.from(table.querySelectorAll('tr:first-child th'))
+        const headers = Array.from(table.querySelectorAll('thead th'))
             .map(th => th.textContent.trim().toLowerCase());
 
         // Get all rows except header
-        const rows = Array.from(table.querySelectorAll('tr:not(.table-header)'));
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
         const totalProducts = rows.length;
         
         // Initialize analysis object
         const analysis = {
             totalProducts,
-            titleIssues: 0,
-            descriptionIssues: 0,
-            missingImages: 0,
-            invalidPrices: 0,
+            titleIssues: [],
+            descriptionIssues: [],
+            imageIssues: [],
             categories: new Set(),
             titleLengths: [],
             descriptionLengths: [],
@@ -225,7 +222,7 @@ class FeedAnalyzer {
             titleTooLong: 0,
             descTooShort: 0,
             descTooLong: 0,
-            issues: [] // Store specific issues with row references
+            issues: []
         };
 
         // Find column indexes
@@ -248,67 +245,67 @@ class FeedAnalyzer {
             const category = cells[categoryIndex]?.textContent.trim() || '';
 
             // Check title
-            if (titleField.length < this.analysisRules.title.minLength) {
+            if (titleField.length < this.rules.title.minLength) {
                 analysis.titleTooShort++;
-                analysis.titleIssues++;
-                analysis.issues.push({
-                    rowId: `row-${rowNumber}`,
-                    type: 'error',
-                    field: 'title',
-                    message: 'Title length (' + titleField.length + ') must be at least ' + this.analysisRules.title.minLength + ' characters'
+                analysis.titleIssues.push({
+                    row: rowIndex,
+                    id: rowNumber,
+                    title: titleField,
+                    message: `Title too short (${titleField.length} chars). Minimum ${this.rules.title.minLength} recommended.`,
+                    severity: 'error'
                 });
             }
-            if (titleField.length > this.analysisRules.title.maxLength) {
+            if (titleField.length > this.rules.title.maxLength) {
                 analysis.titleTooLong++;
-                analysis.titleIssues++;
-                analysis.issues.push({
-                    rowId: `row-${rowNumber}`,
-                    type: 'error',
-                    field: 'title',
-                    message: this.analysisRules.title.message.replace('%s', this.analysisRules.title.maxLength)
+                analysis.titleIssues.push({
+                    row: rowIndex,
+                    id: rowNumber,
+                    title: titleField,
+                    message: `Title too long (${titleField.length} chars). Maximum ${this.rules.title.maxLength} recommended.`,
+                    severity: 'error'
                 });
             }
             if (titleField === titleField.toUpperCase() && titleField.length > 0) {
                 analysis.allCapsCount++;
-                analysis.titleIssues++;
-                analysis.issues.push({
-                    rowId: `row-${rowNumber}`,
-                    type: 'warning',
-                    field: 'title',
-                    message: 'Title should not be all uppercase'
+                analysis.titleIssues.push({
+                    row: rowIndex,
+                    id: rowNumber,
+                    title: titleField,
+                    message: 'Title should not be all uppercase',
+                    severity: 'warning'
                 });
             }
 
             // Check description
-            if (descriptionField.length < this.analysisRules.description.minLength) {
+            if (descriptionField.length < this.rules.description.minLength) {
                 analysis.descTooShort++;
-                analysis.descriptionIssues++;
-                analysis.issues.push({
-                    rowId: `row-${rowNumber}`,
-                    type: 'error',
-                    field: 'description',
-                    message: this.analysisRules.description.message.replace('%s', this.analysisRules.description.minLength)
+                analysis.descriptionIssues.push({
+                    row: rowIndex,
+                    id: rowNumber,
+                    title: descriptionField,
+                    message: `Description too short (${descriptionField.length} chars). Minimum ${this.rules.description.minLength} recommended.`,
+                    severity: 'warning'
                 });
             }
-            if (descriptionField.length > this.analysisRules.description.maxLength) {
+            if (descriptionField.length > this.rules.description.maxLength) {
                 analysis.descTooLong++;
-                analysis.descriptionIssues++;
-                analysis.issues.push({
-                    rowId: `row-${rowNumber}`,
-                    type: 'error',
-                    field: 'description',
-                    message: this.analysisRules.description.message.replace('%s', this.analysisRules.description.maxLength)
+                analysis.descriptionIssues.push({
+                    row: rowIndex,
+                    id: rowNumber,
+                    title: descriptionField,
+                    message: `Description too long (${descriptionField.length} chars). Maximum ${this.rules.description.maxLength} recommended.`,
+                    severity: 'error'
                 });
             }
 
             // Check image URL
             if (!imageUrl.startsWith('https://')) {
-                analysis.missingImages++;
-                analysis.issues.push({
-                    rowId: `row-${rowNumber}`,
-                    type: 'error',
-                    field: 'image',
-                    message: 'Image URL must start with https://'
+                analysis.imageIssues.push({
+                    row: rowIndex,
+                    id: rowNumber,
+                    title: titleField,
+                    message: 'Image URL must start with https://',
+                    severity: 'error'
                 });
             }
 
@@ -316,12 +313,12 @@ class FeedAnalyzer {
             if (price) {
                 const parts = price.trim().split(' ');
                 if (parts.length !== 2 || isNaN(parseFloat(parts[0])) || parts[1] !== 'USD') {
-                    analysis.invalidPrices++;
-                    analysis.issues.push({
-                        rowId: `row-${rowNumber}`,
-                        type: 'error',
-                        field: 'price',
-                        message: 'Price must be in format "XX.XX USD"'
+                    analysis.imageIssues.push({
+                        row: rowIndex,
+                        id: rowNumber,
+                        title: titleField,
+                        message: 'Price must be in format "XX.XX USD"',
+                        severity: 'error'
                     });
                 }
             }
@@ -345,7 +342,7 @@ class FeedAnalyzer {
     }
 
     generateAnalysisReport(analysis) {
-        const healthScore = Math.round((1 - (analysis.titleIssues + analysis.descriptionIssues)/(analysis.totalProducts * 2)) * 100);
+        const healthScore = Math.round((1 - (analysis.titleIssues.length + analysis.descriptionIssues.length)/(analysis.totalProducts * 2)) * 100);
         
         // Determine health score color
         let healthColor = '#27ae60'; // Green
@@ -382,14 +379,14 @@ class FeedAnalyzer {
                     <h4>Content Health</h4>
                     <p>
                         <strong>Title Issues:</strong> 
-                        <span class="validation-badge ${analysis.titleIssues > 0 ? 'error' : 'success'}">
-                            ${analysis.titleIssues} (${Math.round(analysis.titleIssues/analysis.totalProducts*100)}%)
+                        <span class="validation-badge ${analysis.titleIssues.length > 0 ? 'error' : 'success'}">
+                            ${analysis.titleIssues.length} (${Math.round(analysis.titleIssues.length/analysis.totalProducts*100)}%)
                         </span>
                     </p>
                     <p>
                         <strong>Description Issues:</strong> 
-                        <span class="validation-badge ${analysis.descriptionIssues > 0 ? 'error' : 'success'}">
-                            ${analysis.descriptionIssues} (${Math.round(analysis.descriptionIssues/analysis.totalProducts*100)}%)
+                        <span class="validation-badge ${analysis.descriptionIssues.length > 0 ? 'error' : 'success'}">
+                            ${analysis.descriptionIssues.length} (${Math.round(analysis.descriptionIssues.length/analysis.totalProducts*100)}%)
                         </span>
                     </p>
                 </div>
@@ -397,79 +394,55 @@ class FeedAnalyzer {
                 <div class="metric-card">
                     <h4>Technical Issues</h4>
                     <p>
-                        <strong>Missing/Invalid Images:</strong> 
-                        <span class="validation-badge ${analysis.missingImages > 0 ? 'error' : 'success'}">
-                            ${analysis.missingImages}
-                        </span>
-                    </p>
-                    <p>
-                        <strong>Invalid Prices:</strong> 
-                        <span class="validation-badge ${analysis.invalidPrices > 0 ? 'error' : 'success'}">
-                            ${analysis.invalidPrices}
+                        <strong>Image Issues:</strong> 
+                        <span class="validation-badge ${analysis.imageIssues.length > 0 ? 'error' : 'success'}">
+                            ${analysis.imageIssues.length}
                         </span>
                     </p>
                 </div>
             </div>
 
-            ${this.generateIssuesList(analysis.issues)}
+            ${this.generateIssuesList(analysis.titleIssues, 'Title')}
+            ${this.generateIssuesList(analysis.descriptionIssues, 'Description')}
+            ${this.generateIssuesList(analysis.imageIssues, 'Image')}
         </div>`;
     }
 
-    generateIssuesList(issues) {
+    generateIssuesList(issues, type) {
         if (issues.length === 0) {
             return `
             <div class="issues-list">
-                <h4>No Issues Found! 🎉</h4>
+                <h4>${type} Issues</h4>
                 <p class="status-success">Your feed is looking great! All validation checks passed.</p>
             </div>`;
         }
 
-        // Group issues by type
-        const errorIssues = issues.filter(issue => issue.type === 'error');
-        const warningIssues = issues.filter(issue => issue.type === 'warning');
-
         return `
         <div class="issues-list">
-            <h4>Validation Issues</h4>
+            <h4>${type} Issues</h4>
             
-            ${errorIssues.length > 0 ? `
-            <div class="issue-group">
-                <h5 class="status-error">Errors (${errorIssues.length})</h5>
-                ${this.generateIssueItems(errorIssues)}
-            </div>
-            ` : ''}
-            
-            ${warningIssues.length > 0 ? `
-            <div class="issue-group">
-                <h5 class="status-warning">Warnings (${warningIssues.length})</h5>
-                ${this.generateIssueItems(warningIssues)}
-            </div>
-            ` : ''}
+            <ul class="issues-list">
+                ${issues.map(issue => `
+                    <li class="issue-item ${issue.severity}">
+                        <a href="#" class="issue-link" data-row="${issue.row}">
+                            <span class="issue-id">${issue.id}</span>
+                            <span class="issue-title">${issue.title}</span>
+                        </a>
+                        <p class="issue-message">${issue.message}</p>
+                    </li>
+                `).join('')}
+            </ul>
         </div>`;
-    }
-
-    generateIssueItems(issues) {
-        return issues.map(issue => `
-            <div class="issue-item">
-                <strong class="row-link" data-row-id="${issue.rowId}" title="Click to jump to this row">
-                    Row ${issue.rowId.split('-')[1]}
-                </strong>
-                <div class="issue-message" data-row-id="${issue.rowId}">
-                    <span class="issue-icon ${issue.type === 'error' ? 'status-error' : 'status-warning'}">
-                        ${issue.type === 'error' ? '⛔' : '⚠️'}
-                    </span>
-                    ${issue.message}
-                </div>
-            </div>
-        `).join('');
     }
 
     setupReportInteractivity(reportElement) {
         // Add click handlers for row links
-        reportElement.querySelectorAll('.row-link, .issue-message').forEach(link => {
-            link.addEventListener('click', () => {
-                const rowId = link.getAttribute('data-row-id');
-                this.tableManager.scrollToTableRow(rowId);
+        reportElement.querySelectorAll('.issue-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const row = parseInt(link.dataset.row);
+                this.tableManager.highlightRow(row);
+                this.tableManager.scrollToRow(row);
             });
         });
 
