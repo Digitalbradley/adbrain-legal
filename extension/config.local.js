@@ -1,2 +1,0 @@
-const OPENAI_API_KEY = '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';
-export { OPENAI_API_KEY };
