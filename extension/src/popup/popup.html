@@ -22,16 +22,8 @@
                 </div>
                 <button id="previewFeed" class="modern-button">Preview Feed</button>
                 <button id="exportFeed" class="modern-button">Export Feed</button>
-                <select id="mainDropdown" class="modern-select">
-                    <option value="" disabled selected>Choose Analysis:</option>
-                    <optgroup label="Feed Analysis">
-                        <option value="analyze-feed">Basic Feed Analysis</option>
-                        <option value="check-errors">Check Errors</option>
-                        <option value="view-summary">Feed Summary</option>
-                    </optgroup>
-                </select>
-                <button id="testGMCAuth" class="modern-button">Test GMC Auth</button>
-                <button id="validateGMC" class="modern-button">Validate with GMC <span class="premium-badge">PRO</span></button>
+                <button id="testGMCAuth" class="modern-button">Verify GMC Connection</button>
+                <button id="validateGMC" class="modern-button">Validate Feed <span class="premium-badge">PRO</span></button>
             </div>
         </div>
 
@@ -44,11 +36,123 @@
         </div>
 
         <div class="data-container">
-            <div id="previewContent"></div>
+            <!-- Add tab structure -->
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="feed">Feed Preview</button>
+                <button class="tab-button" data-tab="validation">Validation History</button>
+            </div>
+            
+            <div class="tab-content">
+                <!-- Feed preview tab -->
+                <div id="feed-tab" class="tab-panel active">
+                    <!-- Search Controls -->
+                    <div class="search-controls">
+                        <div class="search-bar">
+                            <div class="search-input-container">
+                                <i class="search-icon"></i>
+                                <input type="text" id="searchInput" placeholder="Search products...">
+                            </div>
+                            <div class="search-options">
+                                <select id="searchColumn">
+                                    <option value="all">All Columns</option>
+                                    <option value="title">Title</option>
+                                    <option value="description">Description</option>
+                                    <option value="price">Price</option>
+                                    <option value="category">Category</option>
+                                </select>
+                                <select id="searchType">
+                                    <option value="contains">Contains</option>
+                                    <option value="equals">Equals</option>
+                                    <option value="startsWith">Starts with</option>
+                                </select>
+                                <button id="toggleAdvanced" class="modern-button">Advanced Filters</button>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Filters (Hidden by default) -->
+                        <div id="advancedFilters" class="advanced-filters">
+                            <div class="filter-group">
+                                <label>Price Range:</label>
+                                <input type="number" id="minPrice" placeholder="Min">
+                                <span>-</span>
+                                <input type="number" id="maxPrice" placeholder="Max">
+                            </div>
+                            <div class="filter-group">
+                                <label>Category:</label>
+                                <select id="categoryFilter">
+                                    <option value="">All Categories</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Status:</label>
+                                <div class="status-options">
+                                    <label><input type="radio" name="status" value="all" checked> All</label>
+                                    <label><input type="radio" name="status" value="active"> Active</label>
+                                    <label><input type="radio" name="status" value="pending"> Pending</label>
+                                </div>
+                            </div>
+                            <div class="filter-actions">
+                                <button id="applyFilters" class="modern-button">Apply Filters</button>
+                                <button id="clearFilters" class="modern-button secondary">Clear All</button>
+                            </div>
+                        </div>
+                        <div class="search-status"></div> <!-- ADDED for SearchManager status messages -->
+                    </div>
+
+                    <!-- Existing Preview Content -->
+                    <div id="previewContent"></div>
+
+                    <!-- Pagination Controls -->
+                    <div class="pagination-controls">
+                        <div class="pagination-buttons">
+                            <button class="page-button" title="First Page"><<</button>
+                            <button class="page-button" title="Previous Page"><</button>
+                            <div class="page-numbers">
+                                <button class="page-number active">1</button>
+                                <button class="page-number">2</button>
+                                <button class="page-number">3</button>
+                                <span class="ellipsis">...</span>
+                                <button class="page-number">10</button>
+                            </div>
+                            <button class="page-button" title="Next Page">></button>
+                            <button class="page-button" title="Last Page">>></button>
+                        </div>
+                        <div class="page-size-control">
+                            <span>Show:</span>
+                            <select id="pageSize">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="250">250</option>
+                                <option value="500">500</option>
+                            </select>
+                            <span>per page</span>
+                        </div>
+                        <div class="page-info">
+                            Showing 1-100 of 1,000 items
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Validation history tab -->
+                <div id="validation-tab" class="tab-panel">
+                    <table class="validation-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Feed ID</th>
+                                <th>Status</th>
+                                <th>Issues</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="validationHistory"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Add this before the script tags -->
     <footer class="main-footer">
         <div class="footer-container">
             <div class="footer-section">
@@ -110,6 +214,11 @@
     <script src="../../lib/validation/analyzer.js"></script>
     <script src="../../lib/ui/errors.js"></script>
     <script src="../../lib/ui/tables.js"></script>
-    <script src="popup.js"></script>
+    <script src="../lib/analyzer.js"></script> <!-- Client-side analyzer used by popup.js -->
+    <script src="status_bar_manager.js"></script> <!-- ADDED -->
+    <script src="search_manager.js"></script> <!-- ADDED -->
+    <script src="feed_manager.js"></script> <!-- ADDED -->
+    <script src="validation_ui_manager.js"></script> <!-- ADDED MISSING MANAGER -->
+    <script type="module" src="popup.js"></script>
 </body>
 </html>

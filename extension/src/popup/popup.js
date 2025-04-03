@@ -1,4 +1,4 @@
-// Utility function for debouncing 
+// Utility function for debouncing
 function debounce(func, wait) {
     let timeout;
     return function executedFunction(...args) {
@@ -16,779 +16,454 @@ window.updateCharCount = function(element, maxLength) {
     const content = element.innerText || element.textContent;
     const charCount = content.length;
     const countDisplay = element.nextElementSibling;
-    
-    countDisplay.textContent = `${charCount}/${maxLength} characters`;
-    
-    if (charCount > maxLength) {
-        countDisplay.classList.add('error');
-        element.classList.add('over-limit');
-        countDisplay.style.color = '#dc3545';
-    } else {
-        countDisplay.classList.remove('error');
-        element.classList.remove('over-limit');
-        countDisplay.style.color = '#666';
-    }
+    const isDescription = element.dataset.field === 'description';
+    const minRequired = isDescription ? 90 : 25;
 
-    if (charCount > maxLength * 0.9 && charCount <= maxLength) {
-        countDisplay.style.color = '#ffa500';
+    countDisplay.textContent = `${charCount}/${maxLength}`;
+
+    // Color the count red if under minimum
+    if (charCount < minRequired) {
+        countDisplay.style.color = '#dc3545'; // Red
+    } else if (charCount > maxLength) {
+        countDisplay.style.color = '#dc3545'; // Red
+    } else {
+        countDisplay.style.color = '#28a745'; // Green
     }
 };
 
-class PopupManager {
+class MonitoringSystem {
     constructor() {
-        console.log('Initializing PopupManager');
-        
-        // Initialize managers
-        this.tableManager = new TableManager();
-        this.loadingManager = new LoadingManager();
-        this.errorManager = new ErrorManager();
-        this.gmcApi = new GMCApi();
-        this.gmcValidator = new GMCValidator(this.gmcApi);
-        this.feedAnalyzer = new FeedAnalyzer(this.tableManager);
-        
-        // UI elements
-        this.fileInput = document.getElementById('fileInput');
-        this.previewButton = document.getElementById('previewFeed');
-        this.exportButton = document.getElementById('exportFeed');
-        this.mainDropdown = document.getElementById('mainDropdown');
-        this.dataContainer = null;
-        this.testGMCAuthButton = document.getElementById('testGMCAuth');
-        this.validateGMCButton = document.getElementById('validateGMC');
-        
-        this.setupEventListeners();
-        this.debounceTimeout = null;
-        this.setupScrollSync();
+        this.currentVersion = '1.0.0';
+        this.startTime = new Date();
+
+        // Initialize storage for metrics
+        this.metrics = {
+            operations: [],
+            errors: [],
+            featureUsage: {}
+        };
     }
 
-    initialize() {
-        console.log('Initializing UI');
-        this.setupElements();
-        this.tableManager.initialize();
-        this.setupScrollSync();
+    logOperation(operation, status, details = {}) {
+        const entry = {
+            timestamp: new Date(),
+            operation,
+            status,
+            details,
+            version: this.currentVersion
+        };
+
+        console.log(`[Monitor] ${operation}:`, status);
+        this.metrics.operations.push(entry);
+
+        // Track feature usage
+        this.metrics.featureUsage[operation] =
+            (this.metrics.featureUsage[operation] || 0) + 1;
     }
+
+    logError(error, context) {
+        const entry = {
+            timestamp: new Date(),
+            context,
+            error: error.message,
+            stack: error.stack,
+            version: this.currentVersion
+        };
+
+        console.error(`[Monitor] Error in ${context}:`, error);
+        this.metrics.errors.push(entry);
+    }
+}
+
+class PopupManager {
+    constructor() {
+        // Add monitoring system
+        this.monitor = new MonitoringSystem();
+
+        console.log('Constructing PopupManager'); // Changed log message
+
+        // Initialize managers with monitoring
+        // For now, use basic placeholders if classes aren't defined/loaded
+        this.tableManager = { initialize: () => console.log('TableManager placeholder init') };
+        this.loadingManager = { showLoading: (msg) => console.log('Loading:', msg), hideLoading: () => console.log('Hide Loading') };
+        this.errorManager = { showError: (msg) => alert(`Error: ${msg}`), showSuccess: (msg) => alert(`Success: ${msg}`) };
+
+        this.gmcApi = new GMCApi(); // Instantiate GMCApi
+        this.gmcValidator = new GMCValidator(this.gmcApi);
+        this.feedAnalyzer = { analyzeFeed: (data) => { console.log('FeedAnalyzer placeholder analyze'); return { issues: [], totalProducts: data.length }; } };
+
+        // Initialize validation results storage
+        this.validationResults = {};
+        this.activeValidationPanel = null; // Track the floating panel
+
+        // --- Get UI element references ---
+        const fileInputEl = document.getElementById('fileInput');
+        const previewButtonEl = document.getElementById('previewFeed');
+        this.previewContentContainer = document.getElementById('previewContent');
+        this.exportButton = document.getElementById('exportFeed');
+        this.verifyGMCButton = document.getElementById('verifyGMCConnection');
+        this.validateGMCButton = document.getElementById('validateGMC');
+        this.logoutButton = document.getElementById('logoutButton');
+        this.mainDropdown = document.getElementById('analysisDropdown');
+        const searchInputEl = document.getElementById('searchInput');
+        const searchColumnSelectEl = document.getElementById('searchColumn');
+        const searchTypeSelectEl = document.getElementById('searchType');
+        const clearSearchBtnEl = document.getElementById('clearSearchBtn');
+        const searchStatusEl = document.querySelector('.search-status');
+
+        // --- Instantiate Managers ---
+
+        // Instantiate managers that don't depend on the shared 'managers' object first
+        this.statusBarManager = new StatusBarManager(
+            this.gmcApi, // Direct dependency
+            this.verifyGMCButton,
+            this.validateGMCButton,
+            this.logoutButton
+        );
+
+        this.searchManager = new SearchManager(
+            { // Elements
+                searchInput: searchInputEl,
+                searchColumnSelect: searchColumnSelectEl,
+                searchTypeSelect: searchTypeSelectEl,
+                clearSearchBtn: clearSearchBtnEl,
+                tableContainer: this.previewContentContainer,
+                statusElement: searchStatusEl
+            }
+        );
+
+        // Create a shared managers object including already instantiated managers
+        const managers = {
+            loadingManager: this.loadingManager,
+            errorManager: this.errorManager,
+            monitor: this.monitor,
+            gmcApi: this.gmcApi,
+            gmcValidator: this.gmcValidator,
+            statusBarManager: this.statusBarManager, // Include instance
+            searchManager: this.searchManager,     // Include instance
+            // Placeholders for managers created below
+            validationUIManager: null,
+            feedManager: null
+        };
+
+        // Instantiate remaining managers, passing the shared 'managers' object
+        this.validationUIManager = new ValidationUIManager(
+            { // Elements
+                validationTab: document.getElementById('validation-tab'),
+                historyTableBody: document.getElementById('validationHistory'),
+                feedPreviewContainer: this.previewContentContainer
+            },
+            managers, // Pass the shared managers object (feedManager is null here)
+            this.validationResults
+        );
+
+        this.feedManager = new FeedManager(
+            { // Elements
+                fileInput: fileInputEl,
+                previewButton: previewButtonEl,
+                previewContentContainer: this.previewContentContainer
+            },
+            managers // Pass the shared managers object (validationUIManager is null here)
+        );
+
+        // --- Set Cross-References AFTER Instantiation ---
+        // Now explicitly set the references on the instances' internal managers object
+        managers.validationUIManager = this.validationUIManager;
+        managers.feedManager = this.feedManager;
+        // Ensure each manager's internal 'managers' object has the references it needs
+        this.validationUIManager.managers.feedManager = this.feedManager; // Give VUIManager a ref to FeedManager
+        // FeedManager already received the 'managers' object which now includes validationUIManager
+
+        // Start async initialization
+        this.initializePopup();
+    }
+
+    /**
+     * Asynchronously initializes the popup, including API and UI setup.
+     */
+    async initializePopup() {
+        console.log('Initializing Popup asynchronously...');
+        this.loadingManager.showLoading('Initializing...');
+        try {
+            // Initialize GMCApi to load stored credentials
+            await this.gmcApi.initialize();
+            console.log('GMCApi initialized. Authenticated:', this.gmcApi.isAuthenticated);
+
+            // Setup UI elements that might depend on auth state
+            this.setupElements();
+            // StatusBarManager constructor already called setupStatusBar()
+            this.statusBarManager.updateUI(); // Update status bar content based on auth state
+
+            // Setup remaining UI components and listeners
+            this.tableManager.initialize();
+            // this.setupScrollSync(); // Removed - Functionality moved or obsolete
+            this.setupTabs(); // Call tab setup logic
+            // this.initializeSearch(); // Removed - Functionality moved to SearchManager
+            this.setupEventListeners(); // Setup listeners after elements are ready
+
+            this.loadingManager.hideLoading();
+            console.log('Popup initialization complete.');
+
+        } catch (error) {
+            console.error('Popup initialization failed:', error);
+            this.errorManager.showError(`Initialization failed: ${error.message}`);
+            this.loadingManager.hideLoading();
+            // Update status bar to show error state
+            this.statusBarManager.updateUI(true); // Use manager
+        }
+    }
+
+    // Removed old initialize() method
 
     setupElements() {
         console.log('Setting up elements');
-        
+
         this.dataContainer = document.querySelector('.data-container');
 
-        if (!this.fileInput) console.error('File input not found');
-        if (!this.previewButton) console.error('Preview button not found');
+        // Checks for fileInput, previewButton, mainDropdown removed - Handled by respective managers
         if (!this.exportButton) console.error('Export button not found');
-        if (!this.mainDropdown) console.error('Analysis dropdown not found');
         if (!this.dataContainer) console.error('Data container not found');
+        // Note: verifyGMCButton, validateGMCButton, logoutButton are handled by StatusBarManager
+        // Note: searchInput, searchColumn, searchType, clearSearchBtn are handled by SearchManager
     }
 
     setupEventListeners() {
         console.log('Setting up event listeners');
-        
-        if (this.fileInput) {
-            this.fileInput.addEventListener('change', () => {
-                if (this.previewButton) {
-                    this.previewButton.disabled = !this.fileInput.files.length;
-                }
-            });
-        }
+        // File Input & Preview Button listeners removed - handled by FeedManager
 
-        if (this.previewButton) {
-            this.previewButton.addEventListener('click', () => this.handlePreview());
-        }
+        // Export Button listener explicitly removed
+        // if (this.exportButton) {
+        //     this.exportButton.addEventListener('click', () => this.handleExport()); // This line caused the error
+        // }
 
-        if (this.exportButton) {
-            this.exportButton.addEventListener('click', () => this.handleExport());
-        }
-
+        // Analysis Dropdown (if exists)
         if (this.mainDropdown) {
+            // Removed redundant inner if check
             this.mainDropdown.addEventListener('change', (e) => this.handleDropdownChange(e));
-        }
+        } // Closing brace for the mainDropdown check
 
-        if (this.testGMCAuthButton) {
-            this.testGMCAuthButton.addEventListener('click', () => this.testGMCAuth());
-        }
+        // Verify GMC Connection Button listener removed - Handled by StatusBarManager
+        // if (this.verifyGMCButton) { ... }
 
+        // Validate Feed Button
         if (this.validateGMCButton) {
-            this.validateGMCButton.addEventListener('click', () => this.validateWithGMC());
-        }
-    }
-
-    async handlePreview() {
-        if (!this.fileInput.files[0]) {
-            alert('Please select a file first');
-            return;
+            // Call the new handler which delegates to ValidationUIManager
+            this.validateGMCButton.addEventListener('click', () => this.triggerGMCValidation());
+        } else {
+            console.warn('Validate GMC button not found.');
         }
 
-        try {
-            this.loadingManager.showLoading('Processing feed...');
-            
-            // Read and parse the CSV file
-            const csvText = await this.readFileAsText(this.fileInput.files[0]);
-            const data = this.parseCSV(csvText);
-            
-            // Display the data
-            await this.displayPreview(data);
-            
-        } catch (error) {
-            console.error('Preview failed:', error);
-            alert('Failed to preview file. Please check the format.');
-        } finally {
-            this.loadingManager.hideLoading();
-        }
-    }
+        // Logout Button listener removed - Handled by StatusBarManager
+        // if (this.logoutButton) { ... }
+    } // ADDED MISSING CLOSING BRACE for setupEventListeners method
 
-    async readFileAsText(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                // First try to detect the encoding
-                const buffer = e.target.result;
-                const decoder = new TextDecoder('utf-8', { fatal: true });
-                
-                try {
-                    const text = decoder.decode(buffer);
-                    resolve(text);
-                } catch (encodingError) {
-                    // If UTF-8 fails, try another common encoding
-                    try {
-                        const fallbackDecoder = new TextDecoder('iso-8859-1');
-                        const text = fallbackDecoder.decode(buffer);
-                        resolve(text);
-                    } catch (fallbackError) {
-                        reject(new Error('Unable to decode file content'));
-                    }
-                }
-            };
-            reader.onerror = reject;
-            reader.readAsArrayBuffer(file);
-        });
-    }
+    // Removed duplicated listener blocks that were here
 
-    parseCSV(csvText) {
-        // Normalize encoding first
-        const normalized = csvText.normalize('NFKD')
-            .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-            .replace(/[^\x00-\x7F]/g, '');   // Remove non-ASCII
-
-        const lines = normalized.split('\n').filter(line => line.trim());
-        
-        // Get headers
-        const headers = lines[0].split(',').map(h => h.trim());
-        
-        // Parse data rows
-        const data = [];
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-            
-            // Split the line by comma, handling quoted values
-            const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
-            
-            // Create object from headers and values
-            const row = {};
-            headers.forEach((header, index) => {
-                let value = values[index] || '';
-                // Clean the value
-                value = value
-                    .replace(/^"|"$/g, '')  // Remove quotes
-                    .trim();
-                row[header] = value;
-            });
-            data.push(row);
-        }
-        
-        return data;
-    }
-
-    async displayPreview(data) {
-        const container = document.getElementById('previewContent');
-        if (!container) return;
-
-        const table = document.createElement('table');
-        table.className = 'preview-table';
-
-        // Create header
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const headers = ['id', 'title', 'description', 'link', 'image_link', 'price', 'condition', 'brand', 'gtin', 'mpn', 'google_product_category'];
-        
-        headers.forEach(key => {
-            const th = document.createElement('th');
-            th.textContent = key;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        // Create body
-        const tbody = document.createElement('tbody');
-        data.forEach((row, index) => {
-            const tr = document.createElement('tr');
-            tr.id = `row-${index + 1}`;
-            
-            headers.forEach(key => {
-                if (key === 'title' || key === 'description') {
-                    tr.appendChild(this.createEditableCell(row[key] || '', key, index));
-                } else {
-                    const td = document.createElement('td');
-                    td.textContent = row[key] || '';
-                    tr.appendChild(td);
-                }
-            });
-            tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-
-        container.innerHTML = '';
-        container.appendChild(table);
-    }
+    // handlePreview method removed - logic moved to FeedManager
+    // readFileAsText method removed (lines 254-279) - logic moved to FeedManager
+    // parseCSV method removed (lines 281-315) - logic moved to FeedManager
+    // displayPreview method removed (lines 317-365) - logic moved to FeedManager
+    // handleExport method removed (lines 660-700) - logic moved to FeedManager
+    // getFeedDataFromTable method removed (lines 702-735) - logic moved to FeedManager
+    // sanitizeText helper removed (lines 918-934) - logic moved to FeedManager
+    // createEditableCell method removed (lines 936-982) - logic moved to FeedManager
 
     handleDropdownChange(e) {
         const selectedValue = e.target.value;
-        
+
         if (selectedValue === 'analyze-feed') {
-            this.analyzeFeed();
+                this.analyzeFeed();
         }
     }
 
-    analyzeFeed() {
-        const table = document.querySelector('.preview-table');
-        if (!table) {
-            alert('Please load and preview a feed first before analyzing.');
+    // analyzeFeed method removed (lines 269-408) - Logic moved/obsolete
+    // displayAnalysisReport method removed (lines 410-490) - Logic moved to ValidationUIManager
+    // generateIssuesList method removed (lines 492-526) - Logic moved to ValidationUIManager
+    // setupAnalysisInteractivity method removed (lines 528-545) - Logic moved to ValidationUIManager
+    // scrollToTableRow method removed (lines 547-568) - Logic moved to ValidationUIManager
+
+    // Old verifyOrAuthenticateGMC method removed (lines 740-776)
+    // Old handleLogout method removed (lines 781-797)
+    // Old updateStatusBarUI method removed (lines 803-839)
+
+    // --- Existing methods continue below ---
+    // showValidationProgress method removed (lines 560-575) - logic moved to ValidationUIManager
+    // validateWithGMC method removed (lines 577-637) - logic moved to ValidationUIManager
+    // showValidationResults method removed (lines 639-684) - logic moved to ValidationUIManager
+    // formatValidationIssues method removed (lines 686-718) - logic moved to ValidationUIManager
+    // checkErrors method removed (lines 721-723) - Pro feature placeholder
+    // viewSummary method removed (lines 725-727) - Pro feature placeholder
+    // debounce helper removed (lines 730-733) - Should be global or imported
+    // setupScrollSync method removed (lines 734-791) - Should be handled by specific UI component if needed
+    // updateStatus method removed (lines 795-807) - Should be handled by StatusBarManager or ErrorManager
+    // setupTabs method removed (lines 809-831) - Should be handled by a dedicated TabManager or similar
+    // handleViewDetails method removed (lines 833-849) - logic moved to ValidationUIManager
+    // showFeedPreview method removed (lines 851-860) - Should be handled by FeedManager/TabManager
+    // setupRowNavigation method removed (lines 862-872) - logic moved to ValidationUIManager
+    // navigateToRow method removed (lines 874-899) - logic moved to ValidationUIManager
+    // monitorFieldChanges method removed (lines 901-943) - logic moved to ValidationUIManager
+    // handleFieldEdit method removed (lines 945-969) - logic moved to ValidationUIManager
+    // validateFieldContent method removed (lines 971-978) - logic moved to ValidationUIManager
+    // createValidationDetails method removed (lines 980-1035) - logic moved to ValidationUIManager
+    // groupIssuesByRow helper removed (lines 1038-1047) - logic moved to ValidationUIManager
+    // countIssuesByType helper removed (lines 1049-1059) - logic moved to ValidationUIManager
+    // countRowsWithBothIssues helper removed (lines 1061-1066) - logic moved to ValidationUIManager
+    // formatIssuesList helper removed (lines 1068-1089) - logic moved to ValidationUIManager
+    // makeDraggable helper removed (lines 1092-1126) - logic moved to ValidationUIManager
+    // handleValidateClick method removed (lines 1128-1146) - logic moved to ValidationUIManager
+    // createValidationPanel method removed (lines 1148-1227) - logic moved to ValidationUIManager
+    // getCurrentFeedData method removed (lines 1229-1236) - Delegated to FeedManager
+    // updateValidationHistory method removed (lines 1238-1280) - logic moved to ValidationUIManager
+    // updateValidationPanelIssues method removed (lines 1283-1339) - logic moved to ValidationUIManager
+    // updateFilterCounts method removed (lines 1341-1368) - logic moved to ValidationUIManager
+    // initializeSearch method removed (lines 1371-1402) - logic moved to SearchManager
+    // --- Search methods removed comment is now accurate ---
+
+    /**
+     * Triggers the GMC validation process via the ValidationUIManager.
+     */
+    async triggerGMCValidation() {
+        // Ensure the manager exists before calling
+        if (this.validationUIManager) {
+            // The ValidationUIManager's method handles loading, auth check, data fetching, validation, and display
+            await this.validationUIManager.triggerGMCValidation();
+        } else {
+            console.error("ValidationUIManager not initialized. Cannot trigger GMC validation.");
+            this.errorManager.showError("Validation UI is not ready. Please reload the extension.");
+        }
+    }
+
+    /**
+     * Verifies GMC connection status or initiates authentication if needed.
+     */
+    async verifyOrAuthenticateGMC() {
+        this.loadingManager.showLoading('Checking GMC Connection...');
+        try {
+            let message = '';
+            // Re-initialize to be sure we have the latest stored state
+            await this.gmcApi.initialize();
+
+            if (this.gmcApi.isAuthenticated) {
+                // Optional: Could make a quick test call like fetchMerchantInfo again
+                // to ensure the token is still valid, but chrome.identity handles refresh.
+                console.log('Already authenticated. Merchant ID:', this.gmcApi.merchantId);
+                message = `Already connected to GMC (Merchant ID: ${this.gmcApi.merchantId})`;
+                this.errorManager.showSuccess(message, 3000);
+                this.updateStatusBarUI(); // Ensure UI is up-to-date
+            } else {
+                console.log('Not authenticated, attempting to authenticate...');
+                const success = await this.gmcApi.authenticate();
+                if (success) {
+                    message = `Successfully connected to GMC (Merchant ID: ${this.gmcApi.merchantId})`;
+                    this.errorManager.showSuccess(message, 3000);
+                    this.statusBarManager.updateUI(); // Update UI after successful auth
+                } else {
+                    // Should not be reached if authenticate throws on error
+                    message = 'Authentication failed. Please try again.';
+                    this.errorManager.showError(message);
+                    this.updateStatusBarUI(true); // Update UI to reflect error state
+                }
+            }
+        } catch (error) {
+            console.error('GMC connection/authentication failed:', error);
+            let errorMessage = 'Could not connect to GMC.';
+            if (error.message && error.message.includes('No merchant account found')) {
+                errorMessage = 'Connection failed: No Google Merchant Center account found or accessible.';
+            } else if (error.message) {
+                errorMessage = `Connection failed: ${error.message}`;
+            }
+            this.errorManager.showError(errorMessage);
+            this.statusBarManager.updateUI(true); // Update UI to reflect error state
+        } finally {
+            this.loadingManager.hideLoading();
+        }
+    }
+
+    /**
+     * Handles the logout process.
+     */
+    async handleLogout() {
+        console.log('Logout button clicked');
+        this.loadingManager.showLoading('Logging out...');
+        try {
+            await this.gmcApi.logout();
+            this.errorManager.showSuccess('Successfully logged out.', 2000);
+            this.statusBarManager.updateUI(); // Update UI to logged-out state
+            // Optional: Disable buttons that require auth? (Handled in updateStatusBarUI)
+            // Optional: Redirect to login.html?
+            // Consider closing the tab instead if opened from login.html
+            // window.close(); // Or chrome.tabs.remove(tabId); if you have the tab ID
+        } catch (error) {
+            console.error('Logout failed:', error);
+            this.errorManager.showError(`Logout failed: ${error.message}`);
+        } finally {
+            this.loadingManager.hideLoading();
+        }
+    }
+
+    // updateStatusBarUI method removed - logic moved to StatusBarManager
+
+    /**
+     * Sets up event listeners for tab buttons to switch between panels.
+     */
+    setupTabs() {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabPanels = document.querySelectorAll('.tab-panel');
+
+        if (!tabButtons.length || !tabPanels.length) {
+            console.warn("Tab buttons or panels not found, skipping tab setup.");
             return;
         }
 
-        try {
-            // Get headers from the table
-            const headers = Array.from(table.querySelectorAll('thead th'))
-                .map(th => th.textContent.trim().toLowerCase());
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetTab = button.dataset.tab;
+                if (!targetTab) return;
 
-            // Get all rows except header
-            const rows = Array.from(table.querySelectorAll('tbody tr'));
-            const totalProducts = rows.length;
-            
-            // Initialize analysis object
-            const analysis = {
-                totalProducts,
-                titleErrors: 0,      // < 25 chars
-                titleWarnings: 0,    // 25-70 chars
-                titleOptimal: 0,     // 70-150 chars
-                titleTooLong: 0,     // > 150 chars
-                titleIssues: 0,
-                descriptionIssues: 0,
-                missingImages: 0,
-                invalidPrices: 0,
-                categories: new Set(),
-                titleLengthStats: {
-                    underMinimum: 0,    // < 25
-                    underOptimal: 0,    // 25-70
-                    optimal: 0,         // 70-150
-                    tooLong: 0          // > 150
-                },
-                titleLengths: [],
-                descriptionLengths: [],
-                duplicateTitles: new Map(),
-                duplicateDescriptions: new Map(),
-                allCapsCount: 0
-            };
+                console.log('Tab clicked:', targetTab);
 
-            // Find column indexes
-            const titleIndex = headers.indexOf('title');
-            const descriptionIndex = headers.indexOf('description');
-            const imageUrlIndex = headers.indexOf('image_link');
-            const priceIndex = headers.indexOf('price');
-            const categoryIndex = headers.indexOf('google_product_category');
+                // Deactivate all
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabPanels.forEach(panel => panel.classList.remove('active'));
 
-            // Analyze each row
-            rows.forEach((row, index) => {
-                const cells = row.querySelectorAll('td');
-                
-                const titleField = cells[titleIndex]?.querySelector('.editable-field')?.textContent.trim() || '';
-                const descriptionField = cells[descriptionIndex]?.querySelector('.editable-field')?.textContent.trim() || '';
-                const imageUrl = cells[imageUrlIndex]?.textContent.trim() || '';
-                const price = cells[priceIndex]?.textContent.trim() || '';
-                const category = cells[categoryIndex]?.textContent.trim() || '';
-
-                // Updated title validation logic
-                if (titleField.length < 25) {
-                    analysis.titleErrors++;
-                    analysis.titleLengthStats.underMinimum++;
-                    analysis.titleIssues++;
-                } else if (titleField.length < 70) {
-                    analysis.titleWarnings++;
-                    analysis.titleLengthStats.underOptimal++;
-                } else if (titleField.length <= 150) {
-                    analysis.titleOptimal++;
-                    analysis.titleLengthStats.optimal++;
-                } else {
-                    analysis.titleTooLong++;
-                    analysis.titleLengthStats.tooLong++;
-                    analysis.titleIssues++;
-                }
-
-                // Keep existing description validation
-                if (descriptionField.length < 150) {
-                    analysis.descriptionIssues++;
-                    analysis.descTooShort++;
-                }
-                if (descriptionField.length > 5000) {
-                    analysis.descriptionIssues++;
-                    analysis.descTooLong++;
-                }
-
-                // Track duplicates
-                analysis.duplicateTitles.set(titleField, (analysis.duplicateTitles.get(titleField) || 0) + 1);
-                analysis.duplicateDescriptions.set(descriptionField, (analysis.duplicateDescriptions.get(descriptionField) || 0) + 1);
-
-                // Track categories
-                if (category) {
-                    category.split('>').forEach(cat => {
-                        const trimmedCat = cat.trim();
-                        if (trimmedCat) {
-                            analysis.categories.add(trimmedCat);
-                        }
-                    });
-                }
-
-                // Check image URL
-                if (!imageUrl.startsWith('https://')) {
-                    analysis.missingImages++;
-                }
-
-                // Check price format
-                if (price) {
-                    const parts = price.trim().split(' ');
-                    if (parts.length !== 2 || isNaN(parseFloat(parts[0])) || parts[1] !== 'USD') {
-                        analysis.invalidPrices++;
+                // Activate clicked button and corresponding panel
+                button.classList.add('active');
+                const panelId = `${targetTab}-tab`;
+                const targetPanel = document.getElementById(panelId);
+                if (targetPanel) {
+                    targetPanel.classList.add('active');
+                    console.log('Activated panel:', panelId);
+                    
+                    // If switching to feed tab, reinitialize the floating scroll bar
+                    if (targetTab === 'feed' && this.feedManager) {
+                        // Use setTimeout to ensure the panel is visible before initializing
+                        setTimeout(() => {
+                            this.feedManager.initFloatingScrollBar();
+                        }, 100);
                     }
+                } else {
+                    console.warn(`Panel with ID "${panelId}" not found.`);
                 }
-
-                // Track title length
-                analysis.titleLengths.push(titleField.length);
-                analysis.descriptionLengths.push(descriptionField.length);
-            });
-
-            this.displayAnalysisReport(analysis, rows);
-
-        } catch (error) {
-            console.error('Error analyzing feed:', error);
-            alert('Error analyzing feed. Please try again.');
-        }
-    }
-
-    displayAnalysisReport(analysis, rows) {
-        const healthScore = Math.round((1 - (analysis.titleIssues + analysis.descriptionIssues)/(analysis.totalProducts * 2)) * 100);
-        
-        // Determine health score color
-        let healthColor = '#27ae60'; // Green
-        if (healthScore < 70) healthColor = '#e67e22'; // Orange
-        if (healthScore < 50) healthColor = '#e74c3c'; // Red
-
-        const analysisHtml = `
-            <div class="analysis-report">
-                <div class="report-header">
-                    <h3>Feed Health Analysis</h3>
-                    <button class="close-analysis" title="Close Analysis">×</button>
-                </div>
-                
-                <div class="health-score">
-                    <h4>Overall Feed Health</h4>
-                    <div class="progress-bar">
-                        <div class="progress" style="width: ${healthScore}%; background: ${healthColor}"></div>
-                    </div>
-                    <div class="score-text" style="color: ${healthColor}">${healthScore}% Healthy</div>
-                </div>
-
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <h4>Overall Stats</h4>
-                        <p><strong>Total Products:</strong> ${analysis.totalProducts}</p>
-                        <p><strong>Categories:</strong> ${analysis.categories.size}</p>
-                    </div>
-                    
-                    <div class="metric-card">
-                        <h4>Content Health</h4>
-                        <p>
-                            <strong>Title Issues:</strong> 
-                            <span class="validation-badge ${analysis.titleIssues > 0 ? 'error' : 'success'}">
-                                ${analysis.titleIssues} (${Math.round(analysis.titleIssues/analysis.totalProducts*100)}%)
-                            </span>
-                        </p>
-                        <p>
-                            <strong>Description Issues:</strong> 
-                            <span class="validation-badge ${analysis.descriptionIssues > 0 ? 'error' : 'success'}">
-                                ${analysis.descriptionIssues} (${Math.round(analysis.descriptionIssues/analysis.totalProducts*100)}%)
-                            </span>
-                        </p>
-                    </div>
-                    
-                    <div class="metric-card">
-                        <h4>Technical Issues</h4>
-                        <p>
-                            <strong>Image Issues:</strong> 
-                            <span class="validation-badge ${analysis.missingImages > 0 ? 'error' : 'success'}">
-                                ${analysis.missingImages}
-                            </span>
-                        </p>
-                        <p>
-                            <strong>Price Issues:</strong> 
-                            <span class="validation-badge ${analysis.invalidPrices > 0 ? 'error' : 'success'}">
-                                ${analysis.invalidPrices}
-                            </span>
-                        </p>
-                    </div>
-                </div>
-
-                ${this.generateIssuesList(rows)}
-            </div>
-        `;
-
-        // Remove any existing analysis report
-        const existingReport = document.querySelector('.analysis-report');
-        if (existingReport) {
-            existingReport.remove();
-        }
-
-        // Insert the analysis report before the data table
-        const dataContainer = document.querySelector('.data-container');
-        const analysisElement = document.createElement('div');
-        analysisElement.innerHTML = analysisHtml;
-        dataContainer.insertBefore(analysisElement, dataContainer.firstChild);
-
-        this.setupAnalysisInteractivity();
-    }
-
-    generateIssuesList(rows) {
-        const issues = [];
-        
-        rows.forEach((row, index) => {
-            const titleField = row.querySelector('.title-field')?.textContent.trim() || '';
-            const descriptionField = row.querySelector('.description-field')?.textContent.trim() || '';
-            const rowIssues = [];
-
-            // Only show critical issues
-            if (titleField.length < 25) {
-                rowIssues.push(`Title too short (${titleField.length} chars). Minimum 25 characters required for Google Shopping.`);
-            }
-            if (descriptionField.length < 70) {
-                rowIssues.push(`Description too short (${descriptionField.length} chars). Minimum 70 characters required for Google Shopping.`);
-            }
-
-            if (rowIssues.length > 0) {
-                issues.push(`
-                    <div class="issue-item">
-                        <strong class="row-link" data-row-id="row-${index + 1}">Row ${index + 1}</strong>
-                        ${rowIssues.map(issue => `
-                            <div class="issue-message" data-row-id="row-${index + 1}">- ${issue}</div>
-                        `).join('')}
-                    </div>
-                `);
-            }
-        });
-
-        return issues.length > 0 ? `
-            <div class="issues-list">
-                <h4>Critical Issues</h4>
-                ${issues.join('')}
-            </div>
-        ` : '<div class="no-issues">No issues found! Your feed meets Google Shopping requirements.</div>';
-    }
-
-    setupAnalysisInteractivity() {
-        // Add click handlers for row links
-        document.querySelectorAll('.row-link, .issue-message').forEach(element => {
-            element.addEventListener('click', (e) => {
-                const rowId = e.target.getAttribute('data-row-id');
-                this.scrollToTableRow(rowId);
             });
         });
 
-        // Add close button handler
-        const closeButton = document.querySelector('.close-analysis');
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                const report = document.querySelector('.analysis-report');
-                if (report) report.remove();
-            });
+        // Ensure initial state is correct (first tab active)
+        if (!document.querySelector('.tab-button.active')) {
+             tabButtons[0]?.classList.add('active');
         }
-    }
-
-    scrollToTableRow(rowId) {
-        const row = document.getElementById(rowId);
-        if (row) {
-            // Smooth scroll to row
-            row.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'center'
-            });
-            
-            // Add highlight effect
-            row.style.transition = 'background-color 0.3s ease-in-out';
-            row.style.backgroundColor = '#fff3cd';
-            
+         if (!document.querySelector('.tab-panel.active')) {
+             tabPanels[0]?.classList.add('active');
+        }
+        
+        // Initialize floating scroll bar for the initial active tab if it's the feed tab
+        if (document.querySelector('.tab-button.active[data-tab="feed"]') && this.feedManager) {
             setTimeout(() => {
-                row.style.backgroundColor = '';
-                // Clean up after animation
-                setTimeout(() => {
-                    row.style.transition = '';
-                }, 300);
-            }, 1500);
+                this.feedManager.initFloatingScrollBar();
+            }, 100);
         }
     }
 
-    async handleExport() {
-        try {
-            const table = document.querySelector('.data-table');
-            if (!table) {
-                this.errorManager.showError('Please load and preview a feed first before exporting.');
-                return;
-            }
-
-            const feedData = this.getFeedDataFromTable(table);
-            if (!feedData || !feedData.length) {
-                this.errorManager.showError('No data to export');
-                return;
-            }
-
-            // Convert to CSV
-            const headers = Object.keys(feedData[0]);
-            const csv = [
-                headers.join(','),
-                ...feedData.map(row => headers.map(header => {
-                    const value = row[header] || '';
-                    return value.includes(',') ? `"${value}"` : value;
-                }).join(','))
-            ].join('\n');
-
-            // Create download link
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'exported_feed.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
-            this.errorManager.showError('Feed exported successfully!', 3000);
-        } catch (error) {
-            console.error('Export failed:', error);
-            this.errorManager.showError('Failed to export feed');
-        }
-    }
-
-    getFeedDataFromTable(table) {
-        const headerCells = Array.from(table.querySelectorAll('tr:first-child th'));
-        const headerMap = new Map();
-        
-        headerCells.forEach((th, index) => {
-            const headerName = th.textContent.trim().toLowerCase();
-            if (headerName && headerName !== '#') {
-                headerMap.set(headerName, index);
-            }
-        });
-
-        const rows = Array.from(table.querySelectorAll('tr:not(.table-header)'));
-        
-        return rows.map(row => {
-            const cells = Array.from(row.querySelectorAll('td'));
-            const rowData = {};
-            
-            headerMap.forEach((columnIndex, headerName) => {
-                const cell = cells[columnIndex];
-                if (cell) {
-                    const editableField = cell.querySelector('.editable-field');
-                    const value = editableField ? 
-                        editableField.textContent.trim() : 
-                        cell.textContent.trim();
-                    
-                    if (value) {
-                        rowData[headerName] = value;
-                    }
-                }
-            });
-            
-            return rowData;
-        }).filter(row => Object.keys(row).length > 0);
-    }
-
-    async testGMCAuth() {
-        try {
-            this.loadingManager.showLoading('Testing GMC Authentication...');
-            await this.gmcApi.authenticate();
-            this.errorManager.showError('GMC Authentication successful!', 3000);
-        } catch (error) {
-            console.error('GMC Auth test failed:', error);
-            this.errorManager.showError('GMC Authentication failed: ' + error.message);
-        } finally {
-            this.loadingManager.hideLoading();
-        }
-    }
-
-    async validateWithGMC() {
-        try {
-            const table = document.querySelector('.data-table');
-            if (!table) {
-                this.errorManager.showError('Please load and preview a feed first before validating.');
-                return;
-            }
-
-            this.loadingManager.showLoading('Validating with GMC...');
-            const feedData = this.getFeedDataFromTable(table);
-            const validationResults = await this.gmcValidator.validateFeed(feedData);
-            
-            // Process validation results
-            if (validationResults.isValid) { 
-                this.errorManager.showError('Feed validation successful!', 3000);
-            } else {
-                // Show validation issues
-                const issueCount = validationResults.issues.length;
-                this.errorManager.showError(`Feed validation found ${issueCount} issues. Check the analysis report for details.`);
-                // You might want to display the issues in a more detailed way
-            }
-        } catch (error) {
-            console.error('GMC validation failed:', error);
-            this.errorManager.showError('GMC validation failed: ' + error.message);
-        } finally {
-            this.loadingManager.hideLoading();
-        }
-    }
-
-    checkErrors() {
-        this.errorManager.showError('Error checking is a PRO feature. Please upgrade to access this functionality.');
-    }
-
-    viewSummary() {
-        this.errorManager.showError('Feed summary is a PRO feature. Please upgrade to access this functionality.');
-    }
-
-    // Add debounce helper
-    debounce(func, wait) {
-        clearTimeout(this.debounceTimeout);
-        this.debounceTimeout = setTimeout(func, wait);
-    }
-
-    // Add text sanitization helper
-    sanitizeText(text) {
-        return text
-            // First normalize the text to handle composite characters
-            .normalize('NFKD')
-            // Replace common problematic characters
-            .replace(/[\u2022]/g, '•')           // Proper bullet point
-            .replace(/[\u2013\u2014]/g, '-')     // En and Em dashes
-            .replace(/[\u201C\u201D]/g, '"')     // Smart quotes
-            .replace(/[\u2018\u2019]/g, "'")     // Smart single quotes
-            // Then clean up any remaining issues
-            .replace(/â€¢/g, '•')                // Fix broken bullet points
-            .replace(/â€œ|â€/g, '"')            // Fix broken quotes
-            .replace(/â€™/g, "'")                // Fix broken apostrophes
-            .replace(/\s+/g, ' ')                // Normalize spaces
-            .trim();
-    }
-
-    createEditableCell(content, type, rowIndex) {
-        const cell = document.createElement('td');
-        const field = document.createElement('div');
-        field.className = `editable-field ${type}-field`;
-        field.contentEditable = true;
-        field.textContent = this.sanitizeText(content);
-
-        // Add character count display
-        const charCount = document.createElement('div');
-        charCount.className = 'char-count';
-        const maxLength = type === 'title' ? 150 : 5000;
-        
-        const updateCharCount = (length) => {
-            charCount.textContent = `${length}/${maxLength}`;
-            if (type === 'title') {
-                if (length < 25) {
-                    charCount.style.color = '#dc3545'; // Red for too short
-                } else {
-                    charCount.style.color = '#28a745'; // Green for good length
-                }
-            } else {
-                // Description validation
-                if (length < 70) {
-                    charCount.style.color = '#dc3545'; // Red for too short
-                } else {
-                    charCount.style.color = '#28a745'; // Green for good length
-                }
-            }
-        };
-
-        // Set initial count
-        updateCharCount(content.length);
-
-        // Update count on input
-        field.addEventListener('input', () => {
-            const currentLength = field.textContent.length;
-            updateCharCount(currentLength);
-            this.debounce(() => this.analyzeFeed(), 500);
-        });
-
-        cell.appendChild(field);
-        cell.appendChild(charCount);
-        return cell;
-    }
-
-    setupScrollSync() {
-        const dataContainer = document.querySelector('.data-container');
-        const scrollThumb = document.querySelector('.scroll-thumb');
-        const scrollTrack = document.querySelector('.scroll-track');
-        
-        if (!dataContainer || !scrollThumb || !scrollTrack) return;
-
-        // Calculate scrollbar width once
-        const scrollbarWidth = dataContainer.offsetWidth - dataContainer.clientWidth;
-
-        // Update thumb width accounting for scrollbar
-        const updateThumbWidth = () => {
-            // Use offsetWidth to include scrollbar in calculation
-            const containerWidth = dataContainer.offsetWidth - scrollbarWidth;
-            const scrollRatio = containerWidth / dataContainer.scrollWidth;
-            const thumbWidth = Math.max(scrollRatio * 100, 10); // Minimum 10% width
-            scrollThumb.style.width = `${thumbWidth}%`;
-        };
-
-        // Initial setup
-        updateThumbWidth();
-
-        // Sync floating scroll with content
-        dataContainer.addEventListener('scroll', () => {
-            const maxScroll = dataContainer.scrollWidth - dataContainer.offsetWidth + scrollbarWidth;
-            const scrollRatio = dataContainer.scrollLeft / maxScroll;
-            const trackWidth = scrollTrack.clientWidth - scrollThumb.offsetWidth;
-            const thumbPosition = scrollRatio * trackWidth;
-            scrollThumb.style.transform = `translateX(${thumbPosition}px)`;
-        });
-
-        // Handle thumb drag
-        let isDragging = false;
-        let startX;
-        let scrollLeft;
-
-        scrollThumb.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.pageX - scrollThumb.offsetLeft;
-            scrollLeft = dataContainer.scrollLeft;
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            
-            e.preventDefault();
-            const x = e.pageX - scrollTrack.getBoundingClientRect().left;
-            const walk = (x - startX) * (dataContainer.scrollWidth / scrollTrack.clientWidth);
-            dataContainer.scrollLeft = scrollLeft + walk;
-        });
-
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
-        });
-
-        // Handle window resize
-        window.addEventListener('resize', updateThumbWidth);
-    }
-}
+} // End of PopupManager class
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
