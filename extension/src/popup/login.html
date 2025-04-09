@@ -6,16 +6,17 @@
 </head>
 <body>
     <div class="login-container">
-        <img src="../../images/logo-full.png" alt="AdBrain Logo" class="logo">
+        <img src="/images/Logos/logo-full.png" alt="AdBrain Logo" class="logo"> <!-- Corrected path -->
         <h2>Welcome to AdBrain Feed Manager</h2>
         <p>Please login to continue</p>
-        <button id="loginButton" class="login-button">Login with Google</button>
+        <button id="gmcLoginButton" class="login-button">Connect Google Merchant Center</button> <!-- Renamed ID -->
+        <button id="firebaseLoginButton" class="login-button firebase-button">Sign in with Google (Firebase)</button> <!-- New Firebase Button -->
         <div id="status"></div>
     </div>
 
     <!-- Load dependencies in correct order -->
     <script src="../../lib/auth/auth-config.js"></script>
-    <script src="../../lib/gmc/api.js"></script>
+    <!-- <script src="../../lib/gmc/api.js"></script> Removed: No longer needed directly by login.js -->
     <script src="../../lib/ui/loading.js"></script>
     <script src="login.js"></script>
 </body>

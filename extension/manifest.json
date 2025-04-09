@@ -40,7 +40,6 @@
     "https://shoppingcontent.googleapis.com/*"
   ],
   "background": {
-    "service_worker": "src/background/background.js",
-    "type": "module"
+    "service_worker": "src/background/background.js"
   }
 }

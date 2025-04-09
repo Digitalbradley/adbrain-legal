@@ -98,22 +98,14 @@ class FeedManager {
                         // Under minimum length - show error state
                         event.target.classList.add('under-minimum');
                         event.target.classList.remove('over-limit');
-                        
-                        // Only add needs-fix class if the row has been specifically navigated to
-                        if (row.classList.contains('validation-focus')) {
-                            row.classList.add('needs-fix'); // Add persistent yellow highlight
-                        }
+                        row.classList.add('needs-fix'); // Add persistent yellow highlight
                         
                         console.log(`[FeedManager] Field "${fieldName}" (Row ${rowIndex}) does NOT meet requirements. Length: ${currentLength}/${minLength}`);
                     } else if (currentLength > maxLength) {
                         // Over maximum length - show error state
                         event.target.classList.remove('under-minimum');
                         event.target.classList.add('over-limit');
-                        
-                        // Only add needs-fix class if the row has been specifically navigated to
-                        if (row.classList.contains('validation-focus')) {
-                            row.classList.add('needs-fix'); // Add persistent yellow highlight
-                        }
+                        row.classList.add('needs-fix'); // Add persistent yellow highlight
                         
                         console.log(`[FeedManager] Field "${fieldName}" (Row ${rowIndex}) exceeds maximum length. Length: ${currentLength}/${maxLength}`);
                     } else {
@@ -121,17 +113,12 @@ class FeedManager {
                         event.target.classList.remove('under-minimum');
                         event.target.classList.remove('over-limit');
                         
-                        // Apply green background to valid fields
-                        event.target.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
-                        event.target.style.borderColor = '#28a745';
-                        
                         console.log(`[FeedManager] Field "${fieldName}" (Row ${rowIndex}) met length reqs (${currentLength}). Notifying UI Manager.`);
                         
                         // Check if all fields in the row are valid before removing the needs-fix class
                         const invalidFields = row.querySelectorAll('.editable-field.under-minimum, .editable-field.over-limit');
                         if (invalidFields.length === 0) {
                             row.classList.remove('needs-fix'); // Remove the persistent yellow highlight
-                            row.classList.remove('validation-focus'); // Remove the validation focus marker
                             row.classList.add('fix-complete'); // Add temporary green success highlight
                             
                             // Notify ValidationUIManager to remove the issue from the panel
@@ -309,7 +296,7 @@ class FeedManager {
                     const minLength = isDescription ? 90 : 30; // Title min is 30
                     const maxLength = isDescription ? 5000 : 150; // Title max is 150
                     
-                    // Apply appropriate validation classes to fields
+                    // Apply appropriate validation classes
                     if (currentLength < minLength) {
                         field.classList.add('under-minimum');
                         field.classList.remove('over-limit');
@@ -320,7 +307,12 @@ class FeedManager {
                             charCountDisplay.style.color = '#dc3545'; // Red for error
                         }
                         
-                        // DON'T add needs-fix class to rows by default
+                        // Mark the row as needing fix
+                        const row = field.closest('tr');
+                        if (row) {
+                            row.classList.add('needs-fix');
+                        }
+                        
                         console.log(`[FeedManager] Post-display validation: Field "${fieldType}" is under minimum length (${currentLength}/${minLength})`);
                     } else if (currentLength > maxLength) {
                         field.classList.remove('under-minimum');
@@ -332,12 +324,13 @@ class FeedManager {
                             charCountDisplay.style.color = '#dc3545'; // Red for error
                         }
                         
-                        // DON'T add needs-fix class to rows by default
+                        // Mark the row as needing fix
+                        const row = field.closest('tr');
+                        if (row) {
+                            row.classList.add('needs-fix');
+                        }
+                        
                         console.log(`[FeedManager] Post-display validation: Field "${fieldType}" exceeds maximum length (${currentLength}/${maxLength})`);
-                    } else {
-                        // Valid length - apply green styling to the field
-                        field.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
-                        field.style.borderColor = '#28a745';
                     }
                 }
             });
@@ -385,14 +378,12 @@ class FeedManager {
                 field.classList.remove('over-limit');
                 charCountDisplay.style.color = '#dc3545'; // Red for error
                 
-                // Mark the row as needing fix ONLY if it's been specifically navigated to
+                // Mark the row as needing fix
                 const row = field.closest('tr');
-                if (row && row.classList.contains('validation-focus')) {
-                    row.classList.add('needs-fix');
-                }
-                
-                // Log validation issue
                 if (row) {
+                    row.classList.add('needs-fix');
+                    
+                    // If we have a validation UI manager, make sure it knows about this issue
                     const offerId = row.dataset.offerId;
                     if (offerId && this.managers.validationUIManager) {
                         console.log(`[FeedManager] Field "${type}" (Row ${rowIndex}) does NOT meet requirements. Length: ${currentCount}/${minLength}`);
@@ -404,14 +395,12 @@ class FeedManager {
                 field.classList.add('over-limit');
                 charCountDisplay.style.color = '#dc3545'; // Red for error
                 
-                // Mark the row as needing fix ONLY if it's been specifically navigated to
+                // Mark the row as needing fix
                 const row = field.closest('tr');
-                if (row && row.classList.contains('validation-focus')) {
-                    row.classList.add('needs-fix');
-                }
-                
-                // Log validation issue
                 if (row) {
+                    row.classList.add('needs-fix');
+                    
+                    // If we have a validation UI manager, make sure it knows about this issue
                     const offerId = row.dataset.offerId;
                     if (offerId && this.managers.validationUIManager) {
                         console.log(`[FeedManager] Field "${type}" (Row ${rowIndex}) exceeds maximum length. Length: ${currentCount}/${maxLength}`);
@@ -423,11 +412,8 @@ class FeedManager {
                 field.classList.remove('over-limit');
                 charCountDisplay.style.color = '#28a745'; // Green for success
                 
-                // Apply green background to valid fields
-                field.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
-                field.style.borderColor = '#28a745';
-                
                 // Check if the field meets requirements on initial load or update
+                // This ensures fields that already meet requirements are validated immediately
                 const row = field.closest('tr');
                 if (row) {
                     const offerId = row.dataset.offerId;
@@ -440,7 +426,6 @@ class FeedManager {
                         const invalidFields = row.querySelectorAll('.editable-field.under-minimum, .editable-field.over-limit');
                         if (invalidFields.length === 0) {
                             row.classList.remove('needs-fix');
-                            row.classList.remove('validation-focus');
                         }
                     }
                 }
@@ -459,12 +444,12 @@ class FeedManager {
     }
 
     /**
-     * Extracts the current data from the preview table, including any inline edits.
-     * @returns {Array<object>} Array of product data objects reflecting the current state.
+     * Extracts the current data from the preview table.
+     * @returns {Array<object>} Array of product data objects.
      */
-    getCorrectedTableData() { // Renamed from getTableData
+    getTableData() {
         const table = this.elements.previewContentContainer?.querySelector('table.preview-table');
-        if (!table) { console.warn('No data table found for getCorrectedTableData'); return []; }
+        if (!table) { console.warn('No data table found for getTableData'); return []; }
         const headerCells = Array.from(table.querySelectorAll('thead th'));
         const headers = headerCells.map(th => th.textContent.trim());
         const rows = Array.from(table.querySelectorAll('tbody tr'));
@@ -484,20 +469,6 @@ class FeedManager {
             return rowData;
         }).filter(row => Object.values(row).some(val => val !== ''));
     }
-
-   /**
-    * Placeholder method to get applied corrections.
-    * Needs proper implementation to track user edits or compare original vs current data.
-    * @returns {Array} An array representing the corrections (format TBD).
-    */
-   getAppliedCorrections() {
-       console.warn("FeedManager.getAppliedCorrections() is a placeholder and needs implementation.");
-       // TODO: Implement logic to track or diff changes made in the editable table.
-       // This might involve storing the original data or tracking edit events.
-       // The return format needs to be defined based on how templates will store/apply rules.
-       // Example possible return format: [{ offerId: '123', field: 'title', newValue: 'New Corrected Title' }, ...]
-       return []; // Return empty array for now
-   }
 
      /**
       * Scrolls the preview table to a specific row and highlights it for fixing.
@@ -521,19 +492,13 @@ class FeedManager {
         const targetRow = this.elements.previewContentContainer?.querySelector(`tbody tr[data-row="${rowIndex}"]`);
         if (!targetRow) { console.warn(`Row with index ${rowIndex} not found in FeedManager.`); return; }
 
-        // Remove previous highlights
+        // Remove row-highlight-scroll class from all rows
         this.elements.previewContentContainer?.querySelectorAll('tbody tr.row-highlight-scroll').forEach(row => {
             row.classList.remove('row-highlight-scroll');
         });
 
-        // Add validation-focus class to mark this row as specifically navigated to
-        targetRow.classList.add('validation-focus');
-        
-        // Add needs-fix class if any fields in the row don't meet requirements
-        const invalidFields = targetRow.querySelectorAll('.editable-field.under-minimum, .editable-field.over-limit');
-        if (invalidFields.length > 0) {
-            targetRow.classList.add('needs-fix');
-        }
+        // Add persistent highlight for fixing *before* scrolling/focusing
+        targetRow.classList.add('needs-fix');
 
         targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
 

@@ -50,6 +50,35 @@ class ErrorManager {
             this.showError(message);
         }
     }
+
+    showSuccess(message, duration = 3000) {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success';
+        alert.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: #28a745;
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        alert.textContent = message;
+        document.body.appendChild(alert);
+        
+        // Fade in
+        setTimeout(() => alert.style.opacity = '1', 10);
+        
+        // Remove after duration
+        setTimeout(() => {
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 300);
+        }, duration);
+    }
 }
 
 // Make it globally available

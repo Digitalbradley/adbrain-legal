@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AdBrain Feed Manager - Local Test</title>
+    <link rel="stylesheet" href="src/popup/popup.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        .test-controls {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+        .test-controls h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-controls">
+        <h3>Local Dashboard Test</h3>
+        <p>This is a local test version of the dashboard that bypasses authentication.</p>
+    </div>
+
+    <!-- Include the popup.html content directly -->
+    <div class="branding">
+        <div class="branding-content">
+            <img src="images/NewLogo.png" alt="AdBrain Logo" class="main-logo">
+            <div class="branding-text">
+                <h1>Feed Manager</h1>
+                <p>AI-Powered Shopping Feed Optimization</p>
+                <p>Your first step to AI-powered e-commerce analytics</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="controls-bar">
+            <div class="top-controls">
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" accept=".csv" class="file-input"/>
+                </div>
+                <button id="previewFeed" class="modern-button">Preview Feed</button>
+                <button id="exportFeed" class="modern-button">Export Feed</button>
+                <button id="testGMCAuth" class="modern-button">Verify GMC Connection</button>
+                <button id="validateGMC" class="modern-button">Validate Feed <span class="premium-badge">PRO</span></button>
+            </div>
+        </div>
+
+        <div class="floating-scroll">
+            <div class="scroll-content">
+                <div class="scroll-track">
+                    <div class="scroll-thumb"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-container">
+            <!-- Add tab structure -->
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="feed">Feed Preview</button>
+                <button class="tab-button" data-tab="validation">Validation History</button>
+                <button class="tab-button" data-tab="settings">Settings</button>
+            </div>
+
+            <div class="tab-content">
+                <!-- Feed preview tab -->
+                <div id="feed-tab" class="tab-panel active">
+                    <!-- Search Controls -->
+                    <div class="search-controls">
+                        <div class="search-bar">
+                            <div class="search-input-container">
+                                <i class="search-icon"></i>
+                                <input type="text" id="searchInput" placeholder="Search products...">
+                            </div>
+                            <select id="searchColumn">
+                                <option value="all">All Columns</option>
+                                <option value="title">Title</option>
+                                <option value="description">Description</option>
+                                <option value="price">Price</option>
+                                <option value="category">Category</option>
+                            </select>
+                            <select id="searchType">
+                                <option value="contains">Contains</option>
+                                <option value="equals">Equals</option>
+                                <option value="startsWith">Starts with</option>
+                            </select>
+                        </div>
+                        <div class="search-status"></div>
+                    </div>
+
+                    <!-- Existing Preview Content -->
+                    <div id="previewContent"></div>
+
+                    <!-- Pagination Controls -->
+                    <div class="pagination-controls">
+                        <div class="pagination-buttons">
+                            <button class="page-button" title="First Page"><<</button>
+                            <button class="page-button" title="Previous Page"><</button>
+                            <div class="page-numbers">
+                                <button class="page-number active">1</button>
+                                <button class="page-number">2</button>
+                                <button class="page-number">3</button>
+                                <span class="ellipsis">...</span>
+                                <button class="page-number">10</button>
+                            </div>
+                            <button class="page-button" title="Next Page">></button>
+                            <button class="page-button" title="Last Page">>></button>
+                        </div>
+                        <div class="page-size-control">
+                            <span>Show:</span>
+                            <select id="pageSize">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="250">250</option>
+                                <option value="500">500</option>
+                            </select>
+                            <span>per page</span>
+                        </div>
+                        <div class="page-info">
+                            Showing 1-100 of 1,000 items
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Validation history tab -->
+                <div id="validation-tab" class="tab-panel">
+                    <!-- History Controls -->
+                    <div class="history-controls">
+                        <label for="historySort">Sort by:</label>
+                        <select id="historySort">
+                            <option value="newest" selected>Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                        </select>
+                        <button id="refreshHistoryBtn" class="modern-button small" title="Refresh History">Refresh</button>
+                    </div>
+
+                    <!-- History Table -->
+                    <table class="validation-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Feed ID</th>
+                                <th>Status</th>
+                                <th>Issues</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="validationHistory">
+                            <!-- Rows will be populated by JavaScript -->
+                            <tr><td colspan="5">Select the Validation History tab to load results.</td></tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Upgrade Prompt -->
+                    <div class="upgrade-prompt" id="historyLimitPrompt" style="display: none;">
+                        <p>Free accounts can only access the last 7 days of history.</p>
+                        <button class="upgrade-button modern-button">Upgrade to Pro</button>
+                    </div>
+                </div>
+
+                <!-- Settings tab content omitted for brevity -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="lib/ui/loading.js"></script>
+    <script src="lib/gmc/validator.js"></script>
+    <script src="lib/validation/rules.js"></script>
+    <script src="lib/validation/analyzer.js"></script>
+    <script src="lib/ui/errors.js"></script>
+    <script src="lib/ui/tables.js"></script>
+    <script src="src/popup/status_bar_manager.js"></script>
+    <script src="src/popup/search_manager.js"></script>
+    <script src="src/popup/feed_manager.js"></script>
+    <script src="src/popup/validation_ui_manager.js"></script>
+    <script src="src/popup/settings_manager.js"></script>
+    <script src="src/popup/bulk_actions_manager.js"></script>
+    <script src="src/lib/validation/custom_rule_validator.js"></script>
+
+    <!-- Local test script -->
+    <script>
+        // Mock authentication state
+        const mockAuthState = {
+            gmcAuthenticated: true,
+            firebaseAuthenticated: true,
+            isProUser: true,
+            userEmail: 'test@example.com'
+        };
+
+        // Create mock managers
+        class MockAuthManager {
+            getAuthState() {
+                return mockAuthState;
+            }
+        }
+
+        class MockErrorManager {
+            showError(message) {
+                console.error('Error:', message);
+                alert('Error: ' + message);
+            }
+        }
+
+        class MockMonitor {
+            logOperation() {}
+            logError() {}
+        }
+
+        // Initialize managers
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Initializing local dashboard test...');
+            
+            try {
+                // Create shared managers object
+                const managers = {
+                    authManager: new MockAuthManager(),
+                    errorManager: new MockErrorManager(),
+                    monitor: new MockMonitor()
+                };
+
+                // Create a mock GMCApi instance
+                class MockGMCApi {
+                    constructor() {
+                        this.isAuthenticated = true;
+                        this.testMode = true;
+                    }
+                    
+                    // Add getAuthState method to satisfy AuthManager
+                    getAuthState() {
+                        return { isAuthenticated: true };
+                    }
+                    
+                    // Add authenticate method for ValidationUIManager
+                    async authenticate() {
+                        console.log('Mock GMCApi: authenticate called');
+                        return true;
+                    }
+                    
+                    // Add validateFeed method for GMCValidator
+                    async validateFeed(feedData) {
+                        console.log('Mock GMCApi: validateFeed called with', feedData);
+                        return {
+                            isValid: true,
+                            totalProducts: feedData.length,
+                            validProducts: feedData.length,
+                            issues: []
+                        };
+                    }
+
+                    async validateFeed(feedData) {
+                        console.log('Mock GMCApi: Validating feed data', feedData);
+                        // Simulate a delay
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        // Generate mock validation results
+                        const mockIssues = [];
+                        const totalCount = feedData.length;
+                        let validCount = totalCount;
+                        
+                        // Add some mock issues for demonstration
+                        feedData.forEach((item, index) => {
+                            const rowIndex = index + 1;
+                            
+                            // Check title length (example validation)
+                            if (item.title && item.title.length < 30) {
+                                mockIssues.push({
+                                    rowIndex: rowIndex,
+                                    field: 'title',
+                                    type: 'error',
+                                    message: `Title too short (${item.title.length} chars). Minimum 30 characters recommended.`,
+                                    offerId: item.id
+                                });
+                                validCount--;
+                            }
+                            
+                            // Check description length (example validation)
+                            if (item.description && item.description.length < 90) {
+                                mockIssues.push({
+                                    rowIndex: rowIndex,
+                                    field: 'description',
+                                    type: 'error',
+                                    message: `Description too short (${item.description.length} chars). Minimum 90 characters recommended.`,
+                                    offerId: item.id
+                                });
+                                validCount--;
+                            }
+                        });
+                        
+                        return {
+                            isValid: mockIssues.length === 0,
+                            totalProducts: totalCount,
+                            validProducts: validCount,
+                            issues: mockIssues
+                        };
+                    }
+                }
+                
+                // Create GMCApi instance and add it to managers
+                const gmcApi = new MockGMCApi();
+                managers.gmcApi = gmcApi;
+                
+                // Also add it to the window object for global access
+                window.gmcApi = gmcApi;
+                
+                // Create GMCValidator instance
+                const gmcValidator = new GMCValidator(gmcApi);
+                managers.gmcValidator = gmcValidator;
+
+                // Initialize UI managers
+                const loadingManager = new LoadingManager();
+                managers.loadingManager = loadingManager;
+
+                const errorManager = new ErrorManager();
+                managers.errorManager = errorManager;
+
+                // Initialize SearchManager with required DOM elements
+                const searchElements = {
+                    searchInput: document.getElementById('searchInput'),
+                    searchColumnSelect: document.getElementById('searchColumn'),
+                    searchTypeSelect: document.getElementById('searchType'),
+                    tableContainer: document.getElementById('previewContent'),
+                    statusElement: document.querySelector('.search-status')
+                };
+                const searchManager = new SearchManager(searchElements);
+                managers.searchManager = searchManager;
+
+                // Initialize FeedManager with required DOM elements
+                const feedElements = {
+                    fileInput: document.getElementById('fileInput'),
+                    previewButton: document.getElementById('previewFeed'),
+                    previewContentContainer: document.getElementById('previewContent')
+                };
+                // Override FeedManager's constructor to ignore missing managers check
+                const originalFeedManager = FeedManager;
+                window.FeedManager = function(elements, managers) {
+                    this.elements = elements;
+                    this.managers = managers;
+                    this.offerIdToRowIndexMap = {};
+                    this.initialize = originalFeedManager.prototype.initialize;
+                    this.setupEventListeners = originalFeedManager.prototype.setupEventListeners;
+                    this.handlePreview = originalFeedManager.prototype.handlePreview;
+                    this.readFileAsText = originalFeedManager.prototype.readFileAsText;
+                    this.parseCSV = originalFeedManager.prototype.parseCSV;
+                    this.displayPreview = originalFeedManager.prototype.displayPreview;
+                    this.sanitizeText = originalFeedManager.prototype.sanitizeText;
+                    this.createEditableCell = originalFeedManager.prototype.createEditableCell;
+                    this.getCorrectedTableData = originalFeedManager.prototype.getCorrectedTableData;
+                    this.getAppliedCorrections = originalFeedManager.prototype.getAppliedCorrections;
+                    this.navigateToRow = originalFeedManager.prototype.navigateToRow;
+                    this.initFloatingScrollBar = originalFeedManager.prototype.initFloatingScrollBar;
+                    this.initialize();
+                };
+                
+                // Add getTableData method to FeedManager prototype
+                FeedManager.prototype.getTableData = function() {
+                    console.log('FeedManager: getTableData called');
+                    // Return mock data for testing
+                    return [
+                        {
+                            id: 'PROD001',
+                            title: 'Advanced Portable Speakers 1',
+                            description: 'Built to last, this portable speakers combines ultra-fast processing with user-friendly features.',
+                            price: '449.56 USD',
+                            image_link: 'https://example.com/images/prod001.jpg',
+                            link: 'https://example.com/products/prod001'
+                        },
+                        {
+                            id: 'PROD002',
+                            title: 'High-Performance Gaming Laptops 2',
+                            description: 'Designed for professionals, this gaming laptops offers intuitive controls and superior quality.',
+                            price: '2062.11 USD',
+                            image_link: 'https://example.com/images/prod002.jpg',
+                            link: 'https://example.com/products/prod002'
+                        },
+                        {
+                            id: 'PROD003',
+                            title: 'High-Performance 4K Smart TVs 3',
+                            description: 'Built to last, this 4k smart tvs combines stunning visuals with user-friendly features.',
+                            price: '1764.89 USD',
+                            image_link: 'https://example.com/images/prod003.jpg',
+                            link: 'https://example.com/products/prod003'
+                        }
+                    ];
+                };
+                
+                const feedManager = new FeedManager(feedElements, managers);
+                managers.feedManager = feedManager;
+
+                // Initialize ValidationUIManager with required DOM elements
+                const validationElements = {
+                    historyTableBody: document.getElementById('validationHistory'),
+                    validationTab: document.getElementById('validation-tab')
+                };
+                const validationUIManager = new ValidationUIManager(validationElements, managers);
+                managers.validationUIManager = validationUIManager;
+
+                // Initialize SettingsManager with required elements
+                const settingsElements = {}; // Empty object for testing
+                const settingsManager = new SettingsManager(settingsElements, managers);
+                managers.settingsManager = settingsManager;
+
+                // Initialize BulkActionsManager with required elements
+                const bulkActionsElements = {}; // Empty object for testing
+                const bulkActionsManager = new BulkActionsManager(bulkActionsElements, managers);
+                managers.bulkActionsManager = bulkActionsManager;
+
+                // Initialize CustomRuleValidator
+                const customRuleValidator = new CustomRuleValidator(managers);
+                managers.customRuleValidator = customRuleValidator;
+
+                // Initialize PopupManager
+                class PopupManager {
+                    constructor() {
+                        console.log('PopupManager initialized');
+                        this.setupTabNavigation();
+                    }
+
+                    setupTabNavigation() {
+                        const tabButtons = document.querySelectorAll('.tab-button');
+                        const tabPanels = document.querySelectorAll('.tab-panel');
+
+                        tabButtons.forEach(button => {
+                            button.addEventListener('click', () => {
+                                const tabName = button.getAttribute('data-tab');
+                                
+                                // Update active button
+                                tabButtons.forEach(btn => btn.classList.remove('active'));
+                                button.classList.add('active');
+                                
+                                // Update active panel
+                                tabPanels.forEach(panel => {
+                                    if (panel.id === `${tabName}-tab`) {
+                                        panel.classList.add('active');
+                                    } else {
+                                        panel.classList.remove('active');
+                                    }
+                                });
+                            });
+                        });
+                    }
+                }
+
+                // Initialize PopupManager
+                new PopupManager();
+                
+                // Add click event listener to the "Validate Feed" button
+                const validateFeedButton = document.getElementById('validateGMC');
+                if (validateFeedButton) {
+                    validateFeedButton.addEventListener('click', async () => {
+                        console.log('Validate Feed button clicked');
+                        try {
+                            if (managers.validationUIManager && typeof managers.validationUIManager.triggerGMCValidation === 'function') {
+                                await managers.validationUIManager.triggerGMCValidation();
+                            } else {
+                                console.error('ValidationUIManager or triggerGMCValidation method not available');
+                                alert('Validation functionality is not available');
+                            }
+                        } catch (error) {
+                            console.error('Error during validation:', error);
+                            alert(`Validation failed: ${error.message}`);
+                        }
+                    });
+                } else {
+                    console.warn('Validate Feed button not found');
+                }
+
+                console.log('Local dashboard test initialized successfully');
+            } catch (error) {
+                console.error('Error initializing local dashboard:', error);
+                document.body.innerHTML = `
+                    <div style="color: red; padding: 20px;">
+                        <h2>Error Initializing Dashboard</h2>
+                        <p>${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

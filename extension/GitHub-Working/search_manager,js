@@ -47,7 +47,6 @@ class SearchManager {
                 this.handleSearch(); // Re-run search with empty term to show all
             });
         }
-        
         // Initial column update might be needed if table exists on load
         this.updateSearchColumns();
     }

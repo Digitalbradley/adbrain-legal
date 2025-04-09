@@ -9,11 +9,10 @@ class ValidationUIManager {
      * @param {object} managers - Other manager instances.
      * @param {FeedManager} managers.feedManager - For navigating to rows.
      * @param {ErrorManager} managers.errorManager
-     * @param {AuthManager} managers.authManager - For accessing user state.
      */
     constructor(elements, managers) {
         this.elements = elements;
-        this.managers = managers; // Includes feedManager, errorManager, authManager, etc.
+        this.managers = managers;
         this.activeValidationPanel = null; // Track the currently open panel
         // Store validation results locally within this manager if needed, or access via PopupManager
         this.validationResults = {};
@@ -29,10 +28,6 @@ class ValidationUIManager {
             console.warn("ValidationUIManager: ErrorManager not provided.");
             // Use placeholder if missing
             this.managers.errorManager = { showError: (msg) => alert(`Error: ${msg}`) };
-        }
-        if (!this.managers.authManager) {
-           console.error("ValidationUIManager: AuthManager not provided. Cannot save history.");
-           // Optionally throw an error or disable history saving features
         }
     }
 
@@ -87,64 +82,23 @@ class ValidationUIManager {
            const feedId = `GMC-VAL-${Date.now().toString().slice(-6)}`;
 
            // Get feed data via FeedManager
-           const feedData = feedManager.getCorrectedTableData();
+           const feedData = feedManager.getTableData();
            if (!feedData?.length) {
                errorManager.showError('No feed data available to validate.');
                monitor.logOperation('gmc_validation', 'failed', { reason: 'no_data' });
                return; // Exit early
            }
 
-           // --- Run GMC Validation ---
+           // Run ONLY GMC API validation via GMCValidator
            console.log(`ValidationUIManager: Calling gmcValidator.validate for ${feedData.length} items...`);
            const gmcResults = await gmcValidator.validate(feedData);
            console.log('ValidationUIManager: GMC Validation Results:', gmcResults);
-           let finalIssues = gmcResults.issues || [];
-           let finalIsValid = gmcResults.isValid; // Start with GMC validity
 
-           // --- Run Custom Rule Validation (if Pro) ---
-           const authState = this.managers.authManager.getAuthState();
-           const customRuleValidator = this.managers.customRuleValidator; // Get instance
+           // Display results using internal method
+           this.displayValidationResults(feedId, gmcResults);
 
-           if (authState.isProUser && customRuleValidator) {
-               console.log("User is Pro, applying custom rules...");
-               loadingManager.showLoading('Applying custom rules...'); // Update loading message
-               try {
-                   await customRuleValidator.fetchCustomRules(); // Load rules first
-                   const customIssues = await customRuleValidator.validate(feedData);
-                   console.log('ValidationUIManager: Custom Rule Results:', customIssues);
-
-                   if (customIssues && customIssues.length > 0) {
-                       // Merge issues (simple concatenation for now, could add deduplication later)
-                       finalIssues = finalIssues.concat(customIssues);
-                       // If custom rules find issues, the overall result might become invalid
-                       finalIsValid = finalIsValid && (customIssues.length === 0);
-                        monitor.logOperation('custom_validation', 'completed', { issues: customIssues.length });
-                   } else {
-                        monitor.logOperation('custom_validation', 'completed', { issues: 0 });
-                   }
-               } catch (customError) {
-                    console.error("ValidationUIManager: Custom rule validation failed:", customError);
-                    errorManager.showError(`Custom rule validation failed: ${customError.message}`); // Show non-blocking error
-                    monitor.logOperation('custom_validation', 'failed', { error: customError.message });
-                    // Proceed with only GMC results if custom validation fails
-               }
-           } else {
-                console.log("Skipping custom rules (User not Pro or validator not available).");
-           }
-
-           // --- Combine Results and Display ---
-           loadingManager.showLoading('Processing results...'); // Update loading message
-           const finalResults = {
-               ...gmcResults, // Keep other properties like totalProducts, validProducts from GMC results
-               isValid: finalIsValid,
-               issues: finalIssues
-           };
-
-           // Display combined results
-           this.displayValidationResults(feedId, finalResults);
-
-           monitor.logOperation('combined_validation', 'completed', { issues: finalIssues.length });
-           errorManager.showSuccess('Validation complete.', 3000);
+           monitor.logOperation('gmc_validation', 'completed', { issues: gmcResults.issues?.length || 0 });
+           errorManager.showSuccess('GMC validation complete.', 3000);
 
        } catch (error) {
            monitor.logError(error, 'triggerGMCValidation');
@@ -197,27 +151,10 @@ class ValidationUIManager {
         // Update history tab
         this.updateValidationHistory(feedId, results);
 
-        // --- Save to Firestore ---
-        // Call the save method asynchronously (don't need to wait for it here)
-        this.saveValidationToFirestore(feedId, results)
-            .then(docId => {
-                if (docId) {
-                    console.log(`[ValidationUIManager] Initiated save to Firestore for ${feedId}, Doc ID: ${docId}`);
-                } else {
-                    console.log(`[ValidationUIManager] Skipped saving validation history for ${feedId} (e.g., user not logged into Firebase).`);
-                }
-            })
-            .catch(error => {
-                // Error is already logged within saveValidationToFirestore
-                console.error(`[ValidationUIManager] Background save to Firestore failed for ${feedId}:`, error);
-            });
-        // -------------------------
-
-
         // Show floating panel - REMOVED automatic call. Panel is now shown only via history button.
         // this.handleViewDetails(feedId, results);
     }
-
+    
     /**
      * Checks the feed preview table for fields that don't meet requirements
      * and adds them to the validation results if they're not already there.
@@ -343,413 +280,9 @@ class ValidationUIManager {
         console.log(`[ValidationUIManager] Updated validation results now have ${results.issues.length} issues`);
     }
 
-   /**
-    * Saves the validation results to Firestore under the current user's history.
-    * @param {string} feedId - The ID assigned to this validation run.
-    * @param {object} results - The validation results object.
-    * @returns {Promise<string|null>} - The Firestore document ID if successful, null otherwise.
-    */
-   async saveValidationToFirestore(feedId, results) {
-       if (!this.managers.authManager) {
-           console.error("Cannot save validation history: AuthManager not available.");
-           return null;
-       }
-       // Ensure Firestore SDK is available (it should be loaded by background.js)
-       if (typeof firebase === 'undefined' || !firebase.firestore) {
-           console.error("Cannot save validation history: Firestore SDK not available.");
-           // Attempt to access via background page as a fallback? Risky.
-            try {
-                const bg = await new Promise(resolve => chrome.runtime.getBackgroundPage(resolve));
-                if (!bg || !bg.firebase || !bg.firebase.firestore) {
-                    throw new Error("Firestore not found on background page either.");
-                }
-                // If found, reassign firebase locally for this function scope
-                window.firebase = bg.firebase; // Make it available globally in this context if needed elsewhere? Careful.
-                console.warn("Firestore SDK accessed via background page.");
-            } catch (bgError) {
-                console.error("Error accessing Firestore SDK via background page:", bgError);
-                this.managers.errorManager?.showError("Internal Error: Cannot connect to database service.");
-                return null;
-            }
-       }
+    // --- Methods moved from PopupManager ---
 
-
-       const authState = this.managers.authManager.getAuthState();
-       if (!authState.firebaseAuthenticated || !authState.firebaseUserId) {
-           console.log("Cannot save validation history: User not authenticated with Firebase.");
-           // Don't treat this as an error, just skip saving for non-Firebase users
-           return null;
-       }
-
-       const userId = authState.firebaseUserId;
-       console.log(`Attempting to save validation history for user ${userId}, feedId ${feedId}`);
-
-       try {
-           const db = firebase.firestore();
-           const historyCollectionRef = db.collection('users').doc(userId).collection('validationHistory');
-
-           // Prepare data according to the plan's schema
-           const dataToSave = {
-               timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-               feedId: feedId, // Or perhaps a more specific identifier if available
-               totalProducts: results.totalProducts || 0,
-               validProducts: results.validProducts || 0,
-               // Limit issues array size to avoid exceeding Firestore document limits
-               // Using a smaller limit initially, adjust as needed.
-               issues: results.issues ? results.issues.slice(0, 200) : [], // Store only a subset of issues
-               summary: {
-                   // Calculate summary based on the *full* issues list before slicing
-                   titleIssues: results.issues?.filter(i => i.field === 'title').length || 0,
-                   descriptionIssues: results.issues?.filter(i => i.field === 'description').length || 0,
-                   otherIssues: results.issues?.filter(i => i.field && !['title', 'description'].includes(i.field)).length || 0,
-                   // Add counts for different severity levels if available
-                   errorCount: results.issues?.filter(i => i.type === 'error').length || 0,
-                   warningCount: results.issues?.filter(i => i.type === 'warning').length || 0,
-                   totalIssues: results.issues?.length || 0 // Store total count before slicing
-               },
-               isValid: results.isValid !== undefined ? results.isValid : (results.issues?.length === 0) // Determine overall validity
-           };
-
-           // Add a new document with an auto-generated ID
-           const docRef = await historyCollectionRef.add(dataToSave);
-           console.log(`Validation history saved successfully for user ${userId}. Document ID: ${docRef.id}`);
-           this.managers.monitor?.logOperation('save_validation_history', 'success', { userId: userId, docId: docRef.id });
-           return docRef.id;
-
-       } catch (error) {
-           console.error(`Error saving validation history for user ${userId}:`, error);
-           this.managers.errorManager?.showError("Failed to save validation history.");
-           this.managers.monitor?.logError(error, 'saveValidationToFirestore');
-           return null;
-       }
-   }
-
-  /**
-   * Loads validation history from Firestore for the current user and populates the history table.
-   * @param {number} [limit=25] - The maximum number of history entries to retrieve.
-   * @param {string} [sortBy='newest'] - Sort order ('newest' or 'oldest').
-   */
-  async loadValidationHistoryFromFirestore(limit = 25, sortBy = 'newest') {
-      const historyTableBody = this.elements.historyTableBody;
-      if (!historyTableBody) {
-          console.error('Cannot load history: History table body not found.');
-          return;
-      }
-      // Clear existing history rows before loading new ones
-      historyTableBody.innerHTML = '<tr><td colspan="5">Loading history...</td></tr>';
-
-      if (!this.managers.authManager) {
-          console.error("Cannot load validation history: AuthManager not available.");
-           historyTableBody.innerHTML = '<tr><td colspan="5">Error: Auth service unavailable.</td></tr>';
-          return;
-      }
-       // Ensure Firestore SDK is available
-      if (typeof firebase === 'undefined' || !firebase.firestore) {
-           console.error("Cannot load validation history: Firestore SDK not available.");
-            historyTableBody.innerHTML = '<tr><td colspan="5">Error: Database service unavailable.</td></tr>';
-           // Attempt to access via background page as a fallback?
-           try {
-               const bg = await new Promise(resolve => chrome.runtime.getBackgroundPage(resolve));
-               if (!bg || !bg.firebase || !bg.firebase.firestore) {
-                   throw new Error("Firestore not found on background page either.");
-               }
-               window.firebase = bg.firebase;
-               console.warn("Firestore SDK accessed via background page for history loading.");
-           } catch (bgError) {
-               console.error("Error accessing Firestore SDK via background page:", bgError);
-               this.managers.errorManager?.showError("Internal Error: Cannot connect to database service.");
-               historyTableBody.innerHTML = '<tr><td colspan="5">Error: Cannot connect to database service.</td></tr>';
-               return;
-           }
-      }
-
-      const authState = this.managers.authManager.getAuthState();
-      if (!authState.firebaseAuthenticated || !authState.firebaseUserId) {
-          console.log("Cannot load validation history: User not authenticated with Firebase.");
-          historyTableBody.innerHTML = '<tr><td colspan="5">Sign in with Firebase to view validation history.</td></tr>';
-          return;
-      }
-
-      const userId = authState.firebaseUserId;
-      console.log(`Loading validation history for user ${userId}...`);
-      const isPro = authState.isProUser; // Check pro status
-
-      // Show/hide upgrade prompt
-      // Ensure this runs within the popup's context where the element exists
-      const upgradePrompt = document.getElementById('historyLimitPrompt');
-      if (upgradePrompt) {
-          upgradePrompt.style.display = isPro ? 'none' : 'block'; // Show if not pro
-      } else {
-          console.warn("History limit prompt element (#historyLimitPrompt) not found.");
-      }
-
-
-      try {
-          const db = firebase.firestore();
-          const sortDirection = sortBy === 'oldest' ? 'asc' : 'desc'; // Determine sort direction
-          console.log(`Sorting history by timestamp ${sortDirection}`);
-
-          let query = db.collection('users').doc(userId).collection('validationHistory')
-                        .orderBy('timestamp', sortDirection); // Apply sort direction
-
-          // Apply 7-day filter for non-pro users
-          if (!isPro) {
-              const sevenDaysAgo = new Date();
-              sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-              // Convert to Firestore Timestamp for comparison
-              const sevenDaysAgoTimestamp = firebase.firestore.Timestamp.fromDate(sevenDaysAgo);
-              console.log(`User is not Pro. Filtering history from ${sevenDaysAgo.toISOString()} onwards.`);
-              query = query.where('timestamp', '>=', sevenDaysAgoTimestamp);
-          } else {
-               console.log("User is Pro. Loading full history (up to limit).");
-          }
-
-          // Apply limit
-          query = query.limit(limit);
-
-          // Execute the query
-          const querySnapshot = await query.get();
-
-          // Clear loading message
-          historyTableBody.innerHTML = '';
-
-          if (querySnapshot.empty) {
-              console.log(`No validation history found for user ${userId}.`);
-              historyTableBody.innerHTML = '<tr><td colspan="5">No validation history found.</td></tr>';
-              return;
-          }
-
-          console.log(`Retrieved ${querySnapshot.size} history entries for user ${userId}.`);
-
-          // Determine how to add rows based on sort order
-          const addRowMethod = sortBy === 'oldest'
-              ? (row) => historyTableBody.appendChild(row) // Append for oldest first
-              : (row) => historyTableBody.insertBefore(row, historyTableBody.firstChild); // Prepend for newest first
-
-          querySnapshot.forEach(doc => {
-              const historyData = doc.data();
-              const docId = doc.id; // Use Firestore document ID as the unique ID
-
-               // Reconstruct a minimal 'results' object needed for display logic
-               // Note: The full 'issues' array isn't stored by default, only the summary.
-               const pseudoResults = {
-                   isValid: historyData.isValid,
-                   issues: [], // Placeholder - full issues not retrieved from this query
-                   // Use summary data for issue count display
-                   issueCount: historyData.summary?.totalIssues ?? historyData.summary?.errorCount ?? 0 // Best guess for count
-               };
-
-               // Use the new helper method to create the row element
-               const rowElement = this.createHistoryTableRowElement(docId, historyData, pseudoResults);
-               // Add the row using the determined method (append/prepend)
-               if(rowElement) {
-                  addRowMethod(rowElement);
-               }
-          });
-
-           this.managers.monitor?.logOperation('load_validation_history', 'success', { userId: userId, count: querySnapshot.size, sortBy: sortBy });
-
-      } catch (error) {
-          console.error(`Error loading validation history for user ${userId}:`, error);
-          historyTableBody.innerHTML = '<tr><td colspan="5">Error loading history. Please try again.</td></tr>';
-          this.managers.errorManager?.showError("Failed to load validation history.");
-          this.managers.monitor?.logError(error, 'loadValidationHistoryFromFirestore');
-      }
-  }
-
-  /**
-   * Creates a table row element for a single validation history entry.
-   * @param {string} historyId - The unique ID for this history entry (Firestore doc ID or local feedId).
-   * @param {object} historyData - The data retrieved from Firestore or current run data.
-   * @param {object} displayResults - A minimal results object for display logic (isValid, issueCount).
-   * @returns {HTMLTableRowElement|null} The created table row element, or null on error.
-   */
-  createHistoryTableRowElement(historyId, historyData, displayResults) {
-       // Removed check for historyTableBody as we just return the element
-
-       const row = document.createElement('tr');
-       // Use Firestore timestamp if available, otherwise current time as fallback
-       const timestamp = historyData.timestamp?.toDate ? historyData.timestamp.toDate().toLocaleString() : new Date().toLocaleString();
-       const issueCount = displayResults.issueCount; // Use calculated count
-       row.setAttribute('data-history-id', historyId); // Use history ID
-
-       row.innerHTML = `
-           <td>${timestamp}</td>
-           <td>${historyData.feedId || 'N/A'}</td>
-           <td><span class="status-badge ${displayResults.isValid ? 'success' : 'error'}">${displayResults.isValid ? 'Valid' : 'Invalid'}</span></td>
-           <td>${issueCount}</td>
-           <td><button class="view-details-btn modern-button small" data-history-id="${historyId}" ${issueCount === 0 ? 'disabled' : ''}>${issueCount > 0 ? 'View Summary' : 'No Issues'}</button></td>`; // Changed button text
-
-       // TODO: Update button functionality - currently tries to load full results which aren't stored.
-       // Need to decide how to display history details (e.g., show summary, or load full issues on demand if stored elsewhere).
-       // Add click handler for the "View Summary" button
-       const viewDetailsBtn = row.querySelector('.view-details-btn');
-       if (viewDetailsBtn) {
-           // Keep button disabled only if issueCount is 0
-           viewDetailsBtn.disabled = (issueCount === 0);
-           viewDetailsBtn.title = issueCount > 0 ? "View validation summary" : "No issues found";
-
-           if (issueCount > 0) {
-               viewDetailsBtn.onclick = (event) => {
-                   event.preventDefault(); // Prevent any default link behavior
-                   const clickedButton = event.currentTarget;
-                   const historyId = clickedButton.dataset.historyId;
-                   if (historyId) {
-                       console.log(`View Summary clicked for history ID: ${historyId}`);
-                       // Call a new method to display the summary, passing the ID
-                       this.displayHistorySummary(historyId);
-                   } else {
-                       console.error("Could not get history ID from button.");
-                       this.managers.errorManager?.showError("Could not retrieve summary details.");
-                   }
-               };
-           }
-       }
-       // Return the created row element instead of adding it here
-       return row;
-  }
-
-
-   /**
-    * Fetches a specific validation history entry from Firestore and displays its summary.
-    * @param {string} historyId - The Firestore document ID of the history entry.
-    */
-   async displayHistorySummary(historyId) {
-       console.log(`Fetching summary for history ID: ${historyId}`);
-       this.managers.loadingManager?.showLoading('Loading summary...'); // Use optional chaining
-
-       // Ensure AuthManager and Firestore are available
-       if (!this.managers.authManager) {
-           console.error("Cannot load history summary: AuthManager not available.");
-           this.managers.errorManager?.showError("Authentication service unavailable.");
-           this.managers.loadingManager?.hideLoading();
-           return;
-       }
-       if (typeof firebase === 'undefined' || !firebase.firestore) {
-           console.error("Cannot load history summary: Firestore SDK not available.");
-            // Attempt to access via background page as a fallback?
-            try {
-                const bg = await new Promise(resolve => chrome.runtime.getBackgroundPage(resolve));
-                if (!bg || !bg.firebase || !bg.firebase.firestore) {
-                    throw new Error("Firestore not found on background page either.");
-                }
-                window.firebase = bg.firebase;
-                console.warn("Firestore SDK accessed via background page for history summary.");
-            } catch (bgError) {
-                console.error("Error accessing Firestore SDK via background page:", bgError);
-                this.managers.errorManager?.showError("Internal Error: Cannot connect to database service.");
-                this.managers.loadingManager?.hideLoading();
-                return;
-            }
-       }
-
-       const authState = this.managers.authManager.getAuthState();
-       if (!authState.firebaseAuthenticated || !authState.firebaseUserId) {
-           console.log("Cannot load history summary: User not authenticated with Firebase.");
-           this.managers.errorManager?.showError("Please sign in with Firebase to view history.");
-           this.managers.loadingManager?.hideLoading();
-           return;
-       }
-
-       const userId = authState.firebaseUserId;
-
-       try {
-           const db = firebase.firestore();
-           const docRef = db.collection('users').doc(userId).collection('validationHistory').doc(historyId);
-           const docSnap = await docRef.get();
-
-           if (docSnap.exists) {
-               const historyData = docSnap.data();
-               console.log("History data retrieved:", historyData);
-
-               // Create and display the summary panel
-               this.createAndShowSummaryPanel(historyId, historyData);
-
-           } else {
-               console.error(`History document not found: ${historyId}`);
-               this.managers.errorManager?.showError("Could not find the selected validation history entry.");
-           }
-       } catch (error) {
-           console.error(`Error fetching history document ${historyId}:`, error);
-           this.managers.errorManager?.showError("Failed to load validation summary.");
-           this.managers.monitor?.logError(error, 'displayHistorySummary');
-       } finally {
-           this.managers.loadingManager?.hideLoading();
-       }
-   }
-
-   /**
-    * Creates and displays a simple panel showing the summary of a historical validation run.
-    * @param {string} historyId - The Firestore document ID.
-    * @param {object} historyData - The data fetched from the Firestore document.
-    */
-   createAndShowSummaryPanel(historyId, historyData) {
-       // Close any existing panel first (validation details or another summary)
-       this.activeValidationPanel?.remove();
-       this.activeValidationPanel = null;
-
-       const panel = document.createElement('div');
-       panel.className = 'floating-validation-panel summary-panel'; // Add specific class
-       panel.dataset.historyId = historyId;
-
-       const summary = historyData.summary || {};
-       const timestamp = historyData.timestamp?.toDate ? historyData.timestamp.toDate().toLocaleString() : 'N/A';
-       const isValidText = historyData.isValid ? 'Valid' : 'Invalid';
-       const isValidClass = historyData.isValid ? 'valid' : 'invalid';
-
-       panel.innerHTML = `
-           <div class="panel-header">
-               <h3>Validation Summary</h3>
-               <button class="close-panel" title="Close Panel">&times;</button>
-           </div>
-           <div class="validation-summary">
-               <span class="timestamp">Run Time: ${timestamp}</span>
-               <span class="feed-id">Feed ID: ${historyData.feedId || 'N/A'}</span>
-               <span class="validation-status ${isValidClass}">${isValidText}</span>
-           </div>
-           <div class="summary-details">
-               <h4>Run Metrics:</h4>
-               <ul>
-                   <li>Total Products Processed: ${historyData.totalProducts ?? 'N/A'}</li>
-                   <li>Valid Products: ${historyData.validProducts ?? 'N/A'}</li>
-               </ul>
-               <h4>Issue Summary:</h4>
-               <ul>
-                   <li>Total Issues Found: ${summary.totalIssues ?? 'N/A'}</li>
-                   <li>Errors: ${summary.errorCount ?? 'N/A'}</li>
-                   <li>Warnings: ${summary.warningCount ?? 'N/A'}</li>
-                   <li>Title Issues: ${summary.titleIssues ?? 'N/A'}</li>
-                   <li>Description Issues: ${summary.descriptionIssues ?? 'N/A'}</li>
-                   <li>Other Field Issues: ${summary.otherIssues ?? 'N/A'}</li>
-               </ul>
-               <p class="note">Note: Detailed issue list is not available for historical runs in this view.</p>
-           </div>
-       `;
-
-       const closeBtn = panel.querySelector('.close-panel');
-       if (closeBtn) {
-           closeBtn.onclick = () => {
-               panel.remove();
-               if (this.activeValidationPanel === panel) this.activeValidationPanel = null;
-           };
-       }
-
-       this.makeDraggable(panel); // Reuse draggable functionality
-       document.body.appendChild(panel);
-
-       // Position the panel (example)
-       panel.style.display = 'block';
-       panel.style.opacity = '1';
-       panel.style.right = '20px';
-       panel.style.top = '150px';
-
-       this.activeValidationPanel = panel; // Track the summary panel
-   }
-
-
-   // --- Methods moved from PopupManager ---
-
-   handleViewDetails(feedId, validationData) {
+    handleViewDetails(feedId, validationData) {
         // Close existing panel first
         this.activeValidationPanel?.remove();
         this.activeValidationPanel = null;
@@ -874,58 +407,34 @@ class ValidationUIManager {
 
     // Fallback navigateToRow method removed (lines 251-267) - Navigation is delegated to FeedManager
 
+    updateValidationHistory(feedId, results) {
+        const historyTableBody = this.elements.historyTableBody;
+        if (!historyTableBody) { console.error('Validation history table body not found'); return; }
+        if (!results) { console.error('No results provided to updateValidationHistory'); return; }
 
-   /**
-    * Updates the validation history table with the results of the *current* validation run.
-    * This is called immediately after a validation finishes.
-    * @param {string} feedId - A unique ID for this validation run.
-    * @param {object} results - The validation results object from GMCApi/GMCValidator.
-    */
-   updateValidationHistory(feedId, results) {
-       // This method now ONLY adds the *current* run. Loading is separate.
-       if (!this.elements.historyTableBody) { console.error('Validation history table body not found'); return; }
-       if (!results) { console.error('No results provided to updateValidationHistory'); return; }
+        const row = document.createElement('tr');
+        const timestamp = new Date().toLocaleString();
+        const issueCount = results.issues?.length || 0;
+        row.setAttribute('data-feed-id', feedId);
+        row.innerHTML = `
+            <td>${timestamp}</td><td>${feedId}</td>
+            <td><span class="status-badge ${results.isValid ? 'success' : 'error'}">${results.isValid ? 'Valid' : 'Invalid'}</span></td>
+            <td>${issueCount}</td>
+            <td><button class="view-details-btn modern-button small" data-feed-id="${feedId}" ${issueCount === 0 ? 'disabled' : ''}>${issueCount > 0 ? 'View Issues' : 'No Issues'}</button></td>`;
 
-       // If the table currently shows "No history" or "Loading", remove that row first.
-       const placeholderRow = this.elements.historyTableBody.querySelector('td[colspan="5"]');
-       if (placeholderRow && (placeholderRow.textContent.includes('No validation history found') || placeholderRow.textContent.includes('Loading history'))) {
-           this.elements.historyTableBody.innerHTML = '';
-       }
-
-       // Use the new helper method to add the row
-       // We pass the full 'results' here because we have them for the current run
-       // The 'historyData' object can be minimal as addHistoryTableRow primarily uses 'results' for the current run display
-       const displayResults = {
-           isValid: results.isValid !== undefined ? results.isValid : (results.issues?.length === 0),
-           issueCount: results.issues?.length || 0
-       };
-       // Use the renamed helper method to create the row element
-       const rowElement = this.createHistoryTableRowElement(feedId, { feedId: feedId, timestamp: new Date() }, displayResults);
-       // Always prepend the *current* run's row to the top
-       if (rowElement && this.elements.historyTableBody) {
-          this.elements.historyTableBody.insertBefore(rowElement, this.elements.historyTableBody.firstChild);
-       }
-
-
-       // --- Keep the logic for the "View Issues" button for the *current* run ---
-       const currentRunRow = rowElement; // Use the element we just created
-       if (currentRunRow) {
-           const viewDetailsBtn = currentRunRow.querySelector('.view-details-btn');
-           const issueCount = results.issues?.length || 0;
-           if (viewDetailsBtn) {
-                viewDetailsBtn.disabled = issueCount === 0; // Re-enable button logic for current run
-                viewDetailsBtn.textContent = issueCount > 0 ? 'View Issues' : 'No Issues'; // Correct text
-                viewDetailsBtn.title = issueCount > 0 ? 'View issue details for this run' : 'No issues found in this run';
+        if (issueCount > 0) {
+            const viewDetailsBtn = row.querySelector('.view-details-btn');
+            if (viewDetailsBtn) {
                 viewDetailsBtn.onclick = () => { // Use onclick for simplicity
-                    // Retrieve results using feedId (assuming they are stored locally for the session)
+                    // Retrieve results using feedId (assuming they are stored)
                     const storedResults = this.validationResults[feedId];
                     if (storedResults) this.handleViewDetails(feedId, storedResults);
                     else { console.error(`Could not find stored results for feedId: ${feedId}`); this.managers.errorManager.showError('Could not retrieve validation details.'); }
                 };
-           }
-       }
-       // -----------------------------------------------------------------------
-   }
+            }
+        }
+        historyTableBody.insertBefore(row, historyTableBody.firstChild);
+    }
 
     makeDraggable(element) {
         // (Copied from popup.js - unchanged)

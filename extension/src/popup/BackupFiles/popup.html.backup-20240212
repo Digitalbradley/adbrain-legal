@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AdBrain Feed Manager</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="branding">
+        <div class="branding-content">
+            <img src="../../images/logo-full.png" alt="AdBrain Logo">
+            <h1>AdBrain Feed Manager</h1>
+            <p>AI-Powered Shopping Feed Optimization</p>
+            <p>Your first step to AI-powered e-commerce analytics</p>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="controls-bar">
+            <div class="top-controls">
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" accept=".csv" class="file-input"/>
+                </div>
+                <button id="previewFeed" class="modern-button">Preview Feed</button>
+                <button id="exportFeed" class="modern-button">Export Feed</button>
+                <select id="mainDropdown" class="modern-select">
+                    <option value="" disabled selected>Choose Analysis:</option>
+                    <optgroup label="Feed Analysis">
+                        <option value="analyze-feed">Basic Feed Analysis</option>
+                        <option value="check-errors">Check Errors</option>
+                        <option value="view-summary">Feed Summary</option>
+                    </optgroup>
+                </select>
+                <button id="testGMCAuth" class="modern-button">Test GMC Auth</button>
+                <button id="validateGMC" class="modern-button">Validate with GMC <span class="premium-badge">PRO</span></button>
+            </div>
+        </div>
+
+        <div class="floating-scroll">
+            <div class="scroll-content">
+                <div class="scroll-track">
+                    <div class="scroll-thumb"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-container">
+            <!-- Add tab structure -->
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="feed">Feed Preview</button>
+                <button class="tab-button" data-tab="validation">Validation History</button>
+            </div>
+            
+            <div class="tab-content">
+                <!-- Feed preview tab -->
+                <div id="feed-tab" class="tab-panel active">
+                    <div id="previewContent"></div>
+                </div>
+                
+                <!-- Validation history tab -->
+                <div id="validation-tab" class="tab-panel">
+                    <table class="validation-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Feed ID</th>
+                                <th>Status</th>
+                                <th>Issues</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="validationHistory"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this before the script tags -->
+    <footer class="main-footer">
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3 class="footer-heading">Product</h3>
+                <ul class="footer-list">
+                    <li><a href="#" class="footer-link">Feed Manager</a></li>
+                    <li><a href="#">Voice Analytics</a></li>
+                    <li><a href="#" class="premium-link">
+                        <span class="premium-star">★</span> Upgrade to Pro
+                    </a></li>
+                </ul>
+            </div>
+
+            <div class="footer-column">
+                <h3>Resources</h3>
+                <ul>
+                    <li><a href="#">Documentation</a></li>
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">Community</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-column">
+                <h3>Company</h3>
+                <ul>
+                    <li><a href="#">About Us</a></li>
+                    <li><a href="#">Contact</a></li>
+                    <li><a href="#">Careers</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-column">
+                <h3>Stay Updated</h3>
+                <p>Get the latest updates on e-commerce optimization and AI analytics.</p>
+                <div class="newsletter-form">
+                    <input type="email" placeholder="Enter your email" class="footer-input">
+                    <button class="modern-button">Subscribe</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <div class="footer-legal">
+                <span>&copy; 2025 Voice First Analytics™ with Sofie AI. All rights reserved.</span>
+                <div class="legal-links">
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Load dependencies first -->
+    <script src="../../lib/ui/loading.js"></script>
+    <script src="../../lib/gmc/api.js"></script>
+    <script src="../../lib/gmc/validator.js"></script>
+    <script src="../../lib/validation/rules.js"></script>
+    <script src="../../lib/validation/analyzer.js"></script>
+    <script src="../../lib/ui/errors.js"></script>
+    <script src="../../lib/ui/tables.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

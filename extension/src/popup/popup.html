@@ -6,13 +6,15 @@
 </head>
 <body>
     <div class="branding">
-        <div class="branding-content">
-            <img src="../../images/logo-full.png" alt="AdBrain Logo">
-            <h1>AdBrain Feed Manager</h1>
-            <p>AI-Powered Shopping Feed Optimization</p>
-            <p>Your first step to AI-powered e-commerce analytics</p>
+            <div class="branding-content">
+                                    <img src="../../images/NewLogo.png" alt="AdBrain Logo" class="main-logo">
+                                    <div class="branding-text">
+                                        <h1>Feed Manager</h1>
+                                        <p>AI-Powered Shopping Feed Optimization</p>
+                                        <p>Your first step to AI-powered e-commerce analytics</p>
+                                    </div>
+                                </div>
         </div>
-    </div>
 
     <div class="content-area">
         <div class="controls-bar">
@@ -40,8 +42,9 @@
             <div class="tab-buttons">
                 <button class="tab-button active" data-tab="feed">Feed Preview</button>
                 <button class="tab-button" data-tab="validation">Validation History</button>
+                <button class="tab-button" data-tab="settings">Settings</button> <!-- Added Settings Tab -->
             </div>
-            
+
             <div class="tab-content">
                 <!-- Feed preview tab -->
                 <div id="feed-tab" class="tab-panel active">
@@ -52,49 +55,18 @@
                                 <i class="search-icon"></i>
                                 <input type="text" id="searchInput" placeholder="Search products...">
                             </div>
-                            <div class="search-options">
-                                <select id="searchColumn">
-                                    <option value="all">All Columns</option>
-                                    <option value="title">Title</option>
-                                    <option value="description">Description</option>
-                                    <option value="price">Price</option>
-                                    <option value="category">Category</option>
-                                </select>
-                                <select id="searchType">
-                                    <option value="contains">Contains</option>
-                                    <option value="equals">Equals</option>
-                                    <option value="startsWith">Starts with</option>
-                                </select>
-                                <button id="toggleAdvanced" class="modern-button">Advanced Filters</button>
-                            </div>
-                        </div>
-
-                        <!-- Advanced Filters (Hidden by default) -->
-                        <div id="advancedFilters" class="advanced-filters">
-                            <div class="filter-group">
-                                <label>Price Range:</label>
-                                <input type="number" id="minPrice" placeholder="Min">
-                                <span>-</span>
-                                <input type="number" id="maxPrice" placeholder="Max">
-                            </div>
-                            <div class="filter-group">
-                                <label>Category:</label>
-                                <select id="categoryFilter">
-                                    <option value="">All Categories</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label>Status:</label>
-                                <div class="status-options">
-                                    <label><input type="radio" name="status" value="all" checked> All</label>
-                                    <label><input type="radio" name="status" value="active"> Active</label>
-                                    <label><input type="radio" name="status" value="pending"> Pending</label>
-                                </div>
-                            </div>
-                            <div class="filter-actions">
-                                <button id="applyFilters" class="modern-button">Apply Filters</button>
-                                <button id="clearFilters" class="modern-button secondary">Clear All</button>
-                            </div>
+                            <select id="searchColumn">
+                                <option value="all">All Columns</option>
+                                <option value="title">Title</option>
+                                <option value="description">Description</option>
+                                <option value="price">Price</option>
+                                <option value="category">Category</option>
+                            </select>
+                            <select id="searchType">
+                                <option value="contains">Contains</option>
+                                <option value="equals">Equals</option>
+                                <option value="startsWith">Starts with</option>
+                            </select>
                         </div>
                         <div class="search-status"></div> <!-- ADDED for SearchManager status messages -->
                     </div>
@@ -131,10 +103,69 @@
                             Showing 1-100 of 1,000 items
                         </div>
                     </div>
+
+                   <!-- Bulk Actions Section -->
+                   <div class="bulk-actions-section pro-feature-section" id="bulkActionsSection">
+                       <h3>Bulk Actions <span class="pro-feature-badge">PRO</span></h3>
+
+                       <!-- Export Section -->
+                       <div class="export-controls">
+                           <h4>Export Corrected Feed</h4>
+                           <button id="exportCsvBtn" class="modern-button small">Export as CSV</button>
+                           <button id="exportXmlBtn" class="modern-button small">Export as XML</button>
+                           <!-- Add export status/history link later if needed -->
+                       </div>
+
+                       <!-- Correction Templates Section -->
+                       <div class="templates-manager">
+                           <h4>Correction Templates</h4>
+                           <div class="templates-list" id="templatesList">
+                               <!-- Dynamically populated list of templates -->
+                               <p>Loading templates...</p>
+                           </div>
+                           <div class="template-actions">
+                               <button id="saveCurrentAsTemplateBtn" class="modern-button small">
+                                   Save Current Corrections as Template
+                               </button>
+                               <!-- Add import/manage buttons later -->
+                           </div>
+                           <div class="template-form" id="newTemplateForm" style="display: none;">
+                               <div class="form-group">
+                                   <label for="templateNameInput">Template Name:</label> <!-- Changed label 'for' -->
+                                   <input type="text" id="templateNameInput" placeholder="e.g., Title Length Fixes" />
+                               </div>
+                               <div class="form-actions">
+                                   <button id="saveTemplateBtn" class="modern-button small">Save</button>
+                                   <button id="cancelTemplateBtn" class="modern-button secondary small">Cancel</button>
+                               </div>
+                           </div>
+                       </div>
+
+                       <!-- Upgrade prompt for the whole section -->
+                       <div class="upgrade-prompt feature-upgrade-prompt" id="bulkActionsUpgradePrompt" style="display: none;">
+                           <p>Bulk actions and correction templates are Pro features.</p>
+                           <button class="upgrade-button modern-button">Upgrade to Pro</button>
+                       </div>
+                   </div>
+                   <!-- End Bulk Actions Section -->
+
                 </div>
-                
+
                 <!-- Validation history tab -->
                 <div id="validation-tab" class="tab-panel">
+                    <!-- History Controls -->
+                    <div class="history-controls">
+                        <label for="historySort">Sort by:</label>
+                        <select id="historySort">
+                            <option value="newest" selected>Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <!-- Add more options later if needed (e.g., by issues) -->
+                        </select>
+                        <button id="refreshHistoryBtn" class="modern-button small" title="Refresh History">Refresh</button>
+                        <!-- Add filtering options later if needed -->
+                    </div>
+
+                    <!-- History Table -->
                     <table class="validation-table">
                         <thead>
                             <tr>
@@ -145,10 +176,169 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="validationHistory"></tbody>
+                        <tbody id="validationHistory">
+                           <!-- Rows will be populated by JavaScript -->
+                           <tr><td colspan="5">Select the Validation History tab to load results.</td></tr>
+                        </tbody>
                     </table>
+
+                    <!-- Upgrade Prompt (Initially hidden or styled based on user status) -->
+                    <div class="upgrade-prompt" id="historyLimitPrompt" style="display: none;"> <!-- Start hidden -->
+                        <p>Free accounts can only access the last 7 days of history.</p>
+                        <button class="upgrade-button modern-button">Upgrade to Pro</button>
+                    </div>
                 </div>
             </div>
+
+           <!-- Settings Tab -->
+           <div id="settings-tab" class="tab-panel">
+               <h2>Settings</h2>
+
+               <!-- Scheduled Validation Section -->
+               <div class="settings-section schedule-config">
+                   <h3>Scheduled Validation <span class="pro-feature-badge">PRO</span></h3>
+                   <p>Automatically validate your feed on a regular schedule.</p>
+
+                   <div class="form-group">
+                       <label class="switch">
+                           <input type="checkbox" id="enableSchedule">
+                           <span class="slider round"></span>
+                       </label>
+                       <span class="switch-label">Enable scheduled validation</span>
+                   </div>
+
+                   <div id="scheduleOptions" class="schedule-options" style="display: none;"> <!-- Initially hidden -->
+                       <div class="form-group">
+                           <label for="scheduleFrequency">Frequency:</label>
+                           <select id="scheduleFrequency">
+                               <option value="daily">Daily</option>
+                               <option value="weekly">Weekly</option>
+                           </select>
+                       </div>
+
+                       <div class="form-group" id="weeklyOptions" style="display: none;"> <!-- Initially hidden -->
+                           <label for="scheduleDayOfWeek">Day of Week:</label>
+                           <select id="scheduleDayOfWeek">
+                               <option value="1">Monday</option>
+                               <option value="2">Tuesday</option>
+                               <option value="3">Wednesday</option>
+                               <option value="4">Thursday</option>
+                               <option value="5">Friday</option>
+                               <option value="6">Saturday</option>
+                               <option value="0">Sunday</option>
+                           </select>
+                       </div>
+
+                        <div class="form-group">
+                           <label for="scheduleTime">Approx. Time (UTC):</label>
+                           <select id="scheduleTime">
+                               <!-- Add time options, e.g., every 6 hours -->
+                               <option value="00:00">00:00 UTC</option>
+                               <option value="06:00">06:00 UTC</option>
+                               <option value="12:00">12:00 UTC</option>
+                               <option value="18:00">18:00 UTC</option>
+                           </select>
+                       </div>
+
+                       <div class="form-group">
+                           <label class="switch">
+                                <input type="checkbox" id="enableEmailNotifications">
+                                <span class="slider round"></span>
+                           </label>
+                            <span class="switch-label">Send email notifications on completion</span>
+                       </div>
+
+                       <button id="saveSchedule" class="modern-button">Save Schedule</button>
+                   </div>
+                    <!-- Upgrade prompt for the whole feature -->
+                    <div class="upgrade-prompt feature-upgrade-prompt" id="scheduleUpgradePrompt" style="display: none;">
+                        <p>Scheduled validation is a Pro feature.</p>
+                        <button class="upgrade-button modern-button">Upgrade to Pro</button>
+                    </div>
+               </div>
+
+               <!-- Custom Validation Rules Section -->
+               <div class="settings-section custom-rules-config pro-feature-section" id="customRulesSection">
+                   <h3>Custom Validation Rules <span class="pro-feature-badge">PRO</span></h3>
+                   <p>Define your own rules to check feed data beyond standard requirements.</p>
+
+                   <div class="custom-rules-list" id="customRulesList">
+                       <!-- Dynamically populated list of rules -->
+                       <p>Loading custom rules...</p>
+                   </div>
+
+                   <div class="custom-rules-actions">
+                       <button id="addNewRuleBtn" class="modern-button small">Add New Rule</button>
+                       <!-- Add import/export later -->
+                   </div>
+
+                   <!-- Rule Editor Form (Initially hidden) -->
+                   <div class="rule-editor" id="ruleEditorForm" style="display: none;">
+                       <h4>Rule Editor</h4>
+                       <input type="hidden" id="ruleId" value=""> <!-- For editing existing rules -->
+
+                       <div class="form-group">
+                           <label for="ruleNameInput">Rule Name:</label> <!-- Changed label 'for' -->
+                           <input type="text" id="ruleNameInput" placeholder="e.g., Strict Title Requirements" />
+                       </div>
+
+                       <div class="form-group">
+                           <label for="ruleFieldSelect">Apply to Field:</label>
+                           <select id="ruleFieldSelect">
+                               <option value="title">Title</option>
+                               <option value="description">Description</option>
+                               <option value="price">Price</option>
+                               <option value="link">Link</option>
+                               <option value="image_link">Image Link</option>
+                               <!-- Add other relevant feed attributes -->
+                           </select>
+                       </div>
+
+                       <div class="form-group">
+                           <label for="ruleTypeSelect">Rule Type:</label>
+                           <select id="ruleTypeSelect">
+                               <option value="">-- Select Type --</option>
+                               <option value="length">Length Requirement</option>
+                               <option value="pattern">Pattern Match (Regex)</option>
+                               <option value="required_words">Required Words</option>
+                               <option value="forbidden_words">Forbidden Words</option>
+                               <!-- Add other rule types later -->
+                           </select>
+                       </div>
+
+                       <!-- Dynamic parameters based on rule type -->
+                       <div id="ruleParametersContainer">
+                           <!-- Parameters will be loaded here by JS -->
+                       </div>
+
+                       <div class="form-group">
+                            <label class="switch">
+                               <input type="checkbox" id="ruleEnabledToggle" checked>
+                               <span class="slider round"></span>
+                           </label>
+                           <span class="switch-label">Enable this rule</span>
+                       </div>
+
+                       <div class="form-actions">
+                           <button id="saveRuleBtn" class="modern-button small">Save Rule</button>
+                           <button id="testRuleBtn" class="modern-button secondary small">Test Rule</button>
+                           <button id="cancelRuleBtn" class="modern-button secondary small">Cancel</button>
+                       </div>
+                   </div>
+                    <!-- Upgrade prompt for the whole feature -->
+                    <div class="upgrade-prompt feature-upgrade-prompt" id="customRulesUpgradePrompt" style="display: none;">
+                        <p>Custom validation rules are a Pro feature.</p>
+                        <button class="upgrade-button modern-button">Upgrade to Pro</button>
+                    </div>
+               </div>
+               <!-- End Custom Validation Rules Section -->
+
+
+               <!-- Add other settings sections here later -->
+
+           </div>
+           <!-- End Settings Tab -->
+
         </div>
     </div>
 
@@ -206,19 +396,27 @@
         </div>
     </footer>
 
-    <!-- Load dependencies first -->
+    <!-- Load dependencies in the correct order -->
+    <!-- First, load utility and UI libraries -->
     <script src="../../lib/ui/loading.js"></script>
-    <script src="../../lib/gmc/api.js"></script>
+    <script src="../../lib/ui/errors.js"></script>
+    <script src="../../lib/ui/tables.js"></script>
+    
+    <!-- Then load validation-related libraries -->
     <script src="../../lib/gmc/validator.js"></script>
     <script src="../../lib/validation/rules.js"></script>
     <script src="../../lib/validation/analyzer.js"></script>
-    <script src="../../lib/ui/errors.js"></script>
-    <script src="../../lib/ui/tables.js"></script>
-    <script src="../lib/analyzer.js"></script> <!-- Client-side analyzer used by popup.js -->
-    <script src="status_bar_manager.js"></script> <!-- ADDED -->
-    <script src="search_manager.js"></script> <!-- ADDED -->
-    <script src="feed_manager.js"></script> <!-- ADDED -->
-    <script src="validation_ui_manager.js"></script> <!-- ADDED MISSING MANAGER -->
-    <script type="module" src="popup.js"></script>
+    <script src="../../lib/validation/custom_rule_validator.js"></script>
+    
+    <!-- Then load manager classes in dependency order -->
+    <script src="status_bar_manager.js"></script>
+    <script src="search_manager.js"></script>
+    <script src="feed_manager.js"></script>
+    <script src="validation_ui_manager.js"></script>
+    <script src="settings_manager.js"></script>
+    <script src="bulk_actions_manager.js"></script>
+    
+    <!-- Finally, load the main popup script -->
+    <script src="popup.js"></script>
 </body>
 </html>
