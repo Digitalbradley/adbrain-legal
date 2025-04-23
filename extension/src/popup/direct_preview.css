@@ -1,0 +1,127 @@
+/* Styles for the direct preview functionality */
+
+/* Table styles */
+.preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.preview-table th, .preview-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.preview-table th {
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.preview-table .table-header {
+    font-weight: bold;
+}
+
+/* Row highlighting */
+.preview-table tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.preview-table tr.row-highlight-scroll {
+    background-color: #fff8e1;
+}
+
+.preview-table tr.needs-fix {
+    background-color: #ffebee;
+}
+
+.preview-table tr.validation-focus {
+    background-color: #e8f5e9;
+    border: 2px solid #4caf50;
+}
+
+/* Editable fields */
+.editable-field {
+    min-height: 20px;
+    padding: 5px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #fff;
+    transition: all 0.2s;
+}
+
+.editable-field:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.editable-field.under-minimum {
+    border-color: #dc3545;
+    background-color: rgba(255, 0, 0, 0.1);
+}
+
+.editable-field.over-limit {
+    border-color: #dc3545;
+    background-color: rgba(255, 0, 0, 0.1);
+}
+
+/* Character count display */
+.char-count {
+    font-size: 12px;
+    color: #6c757d;
+    text-align: right;
+    margin-top: 2px;
+    display: block;
+}
+
+/* Floating scroll bar */
+.floating-scroll {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: #fff;
+    border-bottom: 1px solid #ddd;
+    padding: 5px 0;
+    display: none;
+}
+
+.scroll-content {
+    padding: 0 15px;
+}
+
+.scroll-track {
+    height: 10px;
+    background-color: #f1f1f1;
+    border-radius: 5px;
+    position: relative;
+}
+
+.scroll-thumb {
+    height: 10px;
+    background-color: #888;
+    border-radius: 5px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: pointer;
+}
+
+.scroll-thumb:hover {
+    background-color: #555;
+}
+
+/* Special cell styling */
+.title-cell, .description-cell {
+    min-width: 200px;
+}
+
+.title-field {
+    min-height: 40px;
+}
+
+.description-field {
+    min-height: 60px;
+}

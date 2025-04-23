@@ -34,9 +34,13 @@ class FeedManager {
         if (!this.elements.fileInput || !this.elements.previewButton || !this.elements.previewContentContainer) {
             console.error('FeedManager: Required DOM elements missing!', elements);
         }
-        // Updated check to include validationUIManager
-        if (!this.managers.loadingManager || !this.managers.errorManager || !this.managers.searchManager || !this.managers.monitor || !this.managers.validationUIManager) {
+        // Check for required managers, but don't require validationUIManager
+        if (!this.managers.loadingManager || !this.managers.errorManager || !this.managers.searchManager || !this.managers.monitor) {
              console.error('FeedManager: Required managers missing!', managers);
+        }
+        // Just log a warning if validationUIManager is missing
+        if (!this.managers.validationUIManager) {
+             console.warn('FeedManager: ValidationUIManager not available during initialization. Will attempt to use it if it becomes available later.');
         }
         this.offerIdToRowIndexMap = {}; // Map offerId to visual row index
 
@@ -44,24 +48,45 @@ class FeedManager {
     }
 
     initialize() {
-        console.log('Initializing FeedManager...');
+        console.log('[DEBUG] Initializing FeedManager...');
+        console.log('[DEBUG] FeedManager elements:', this.elements);
+        console.log('[DEBUG] FeedManager managers:', this.managers);
         this.setupEventListeners();
     }
 
     setupEventListeners() {
+        console.log('[DEBUG] Setting up event listeners in FeedManager');
+        
         if (this.elements.fileInput) {
+            console.log('[DEBUG] Setting up fileInput change listener');
             this.elements.fileInput.addEventListener('change', () => {
+                console.log('[DEBUG] File input changed');
                 if (this.elements.previewButton) {
                     this.elements.previewButton.disabled = !this.elements.fileInput.files?.length;
+                    console.log('[DEBUG] Preview button disabled:', this.elements.previewButton.disabled);
                 }
             });
-             if (this.elements.previewButton) {
-                 this.elements.previewButton.disabled = !this.elements.fileInput.files?.length;
-             }
+            if (this.elements.previewButton) {
+                this.elements.previewButton.disabled = !this.elements.fileInput.files?.length;
+                console.log('[DEBUG] Initial preview button disabled state:', this.elements.previewButton.disabled);
+            }
         } else { console.error("FeedManager: fileInput element not provided."); }
 
         if (this.elements.previewButton) {
-            this.elements.previewButton.addEventListener('click', () => this.handlePreview());
+            console.log('[DEBUG] Setting up previewButton click listener');
+            console.log('[DEBUG] previewButton element:', this.elements.previewButton);
+            
+            // Remove any existing click listeners
+            this.elements.previewButton.removeEventListener('click', this.handlePreviewBound);
+            
+            // Create a bound version of handlePreview
+            this.handlePreviewBound = this.handlePreview.bind(this);
+            
+            // Add the new click listener
+            this.elements.previewButton.addEventListener('click', this.handlePreviewBound);
+            
+            // Remove the duplicate click handler that was causing issues
+            // The bound version above is sufficient and prevents duplicate calls
         } else { console.error("FeedManager: previewButton element not provided."); }
         
         // Add a single delegated event listener for all editable fields
@@ -135,9 +160,11 @@ class FeedManager {
                             row.classList.add('fix-complete'); // Add temporary green success highlight
                             
                             // Notify ValidationUIManager to remove the issue from the panel
-                            if (this.managers.validationUIManager && typeof this.managers.validationUIManager.markIssueAsFixed === 'function') {
+                            // Try to get the latest reference to validationUIManager from the managers object
+                            const validationUIManager = this.managers.validationUIManager;
+                            if (validationUIManager && typeof validationUIManager.markIssueAsFixed === 'function') {
                                 console.log(`[FeedManager] Notifying UI Manager to fix offerId: ${offerId}, field: ${fieldName}`);
-                                this.managers.validationUIManager.markIssueAsFixed(offerId, fieldName);
+                                validationUIManager.markIssueAsFixed(offerId, fieldName);
                             } else {
                                 console.warn("ValidationUIManager or markIssueAsFixed method not available to notify.");
                             }
@@ -162,21 +189,63 @@ class FeedManager {
     }
 
     async handlePreview() {
+        console.log('[DEBUG] ==================== PREVIEW FEED BUTTON CLICKED ====================');
+        console.log('[DEBUG] handlePreview called');
+        console.log('[DEBUG] this in handlePreview:', this);
+        console.log('[DEBUG] this.elements in handlePreview:', this.elements);
         const { fileInput } = this.elements;
+        console.log('[DEBUG] fileInput:', fileInput);
+        console.log('[DEBUG] fileInput.files:', fileInput?.files);
+        
         // Ensure managers exist before destructuring
-        const loadingManager = this.managers.loadingManager || { showLoading: ()=>{}, hideLoading: ()=>{} };
-        const errorManager = this.managers.errorManager || { showError: alert, showSuccess: alert };
+        const loadingManager = this.managers.loadingManager || {
+            showLoading: (msg) => {
+                console.log('Loading:', msg);
+                document.body.classList.add('is-loading');
+            },
+            hideLoading: () => {
+                console.log('Hide Loading');
+                document.body.classList.remove('is-loading');
+            }
+        };
+        const errorManager = this.managers.errorManager || {
+            showError: (msg) => { console.error("Error:", msg); alert(`Error: ${msg}`); },
+            showSuccess: (msg, duration) => {
+                console.log("Success:", msg);
+                // Create a temporary success message
+                const successMessage = document.createElement('div');
+                successMessage.className = 'success-message';
+                successMessage.textContent = msg;
+                document.body.appendChild(successMessage);
+                setTimeout(() => {
+                    successMessage.classList.add('show');
+                    setTimeout(() => {
+                        successMessage.classList.remove('show');
+                        setTimeout(() => {
+                            if (successMessage.parentNode) {
+                                document.body.removeChild(successMessage);
+                            }
+                        }, 300);
+                    }, duration || 2000);
+                }, 100);
+            }
+        };
         const monitor = this.managers.monitor || { logOperation: ()=>{}, logError: console.error };
         const searchManager = this.managers.searchManager;
+        
+        console.log('[DEBUG] Managers:', this.managers);
 
         try {
             monitor.logOperation('preview', 'started');
 
             if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+                console.log('[DEBUG] No file selected');
                 errorManager.showError('Please select a file first');
                 monitor.logOperation('preview', 'failed', { reason: 'no_file' });
                 return;
             }
+            
+            console.log('[DEBUG] File selected:', fileInput.files[0].name);
 
             loadingManager.showLoading('Processing feed...');
 
@@ -197,17 +266,23 @@ class FeedManager {
             errorManager.showSuccess(`Preview loaded for ${file.name}`, 2000);
 
         } catch (error) {
+            console.log('[DEBUG] Error in handlePreview:', error);
             monitor.logError(error, 'handlePreview');
             errorManager.showError(`Failed to preview file: ${error.message}. Please check the format.`);
         } finally {
+            console.log('[DEBUG] handlePreview completed');
             loadingManager.hideLoading();
         }
     }
 
     async readFileAsText(file) {
+        console.log('[DEBUG] ==================== READING FILE ====================');
+        console.log('[DEBUG] readFileAsText called with file:', file.name, 'size:', file.size, 'type:', file.type);
+        
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
+                console.log('[DEBUG] File read successfully');
                 const buffer = e.target.result;
                 try {
                     const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -232,11 +307,30 @@ class FeedManager {
     }
 
     parseCSV(csvText) {
-         if (!csvText || !csvText.trim()) return [];
+        console.log('[DEBUG] ==================== PARSING CSV ====================');
+        console.log('[DEBUG] parseCSV called with text length:', csvText ? csvText.length : 0);
+        
+        if (!csvText || !csvText.trim()) {
+            console.error('[DEBUG] CSV text is empty or only whitespace');
+            return [];
+        }
+        
         const lines = csvText.split(/[\r\n]+/).filter(line => line.trim());
-        if (lines.length < 1) throw new Error("CSV file appears empty or has no header row.");
+        console.log('[DEBUG] CSV contains', lines.length, 'non-empty lines');
+        
+        if (lines.length < 1) {
+            console.error('[DEBUG] CSV file appears empty or has no header row');
+            throw new Error("CSV file appears empty or has no header row.");
+        }
+        
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').trim());
-        if (headers.length === 0 || headers.every(h => !h)) throw new Error("Could not parse headers from CSV.");
+        console.log('[DEBUG] CSV headers:', headers);
+        
+        if (headers.length === 0 || headers.every(h => !h)) {
+            console.error('[DEBUG] Could not parse headers from CSV');
+            throw new Error("Could not parse headers from CSV.");
+        }
+        
         const data = [];
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i]; if (!line.trim()) continue;
@@ -254,14 +348,36 @@ class FeedManager {
             headers.forEach((header, index) => { if (header) { const value = (values[index] || '').trim(); row[header] = value; if (value) hasValue = true; } });
             if (hasValue) data.push(row);
         }
-        if (data.length === 0) console.warn("CSV parsed, but no data rows found.");
+        
+        if (data.length === 0) {
+            console.warn("[DEBUG] CSV parsed, but no data rows found.");
+        } else {
+            console.log('[DEBUG] Successfully parsed CSV data with', data.length, 'rows');
+            console.log('[DEBUG] First row sample:', data[0]);
+        }
+        
         return data;
     }
 
     async displayPreview(data) {
+        console.log('[DEBUG] ==================== DISPLAY PREVIEW CALLED ====================');
+        console.log('[DEBUG] displayPreview called with data:', data ? `${data.length} rows` : 'no data');
+        
         const container = this.elements.previewContentContainer;
-        if (!container) { console.error("Preview container not found."); return; }
-        if (!data || data.length === 0) { container.innerHTML = '<p class="no-data-message">No data to display.</p>'; return; }
+        console.log('[DEBUG] previewContentContainer:', container);
+        
+        if (!container) {
+            console.error("[DEBUG] Preview container not found. Cannot display preview.");
+            return;
+        }
+        
+        if (!data || data.length === 0) {
+            console.log('[DEBUG] No data to display in preview');
+            container.innerHTML = '<p class="no-data-message">No data to display.</p>';
+            return;
+        }
+        
+        console.log('[DEBUG] Creating table for preview with headers:', Object.keys(data[0] || {}));
         const table = document.createElement('table');
         table.className = 'preview-table data-table';
         const headers = Object.keys(data[0] || {});
@@ -288,10 +404,18 @@ class FeedManager {
                 } else { cell.textContent = content; }
             });
         });
-        container.innerHTML = ''; container.appendChild(table);
-        console.log(`Displayed preview for ${data.length} products.`);
+        
+        console.log('[DEBUG] Table created with', data.length, 'rows. Appending to container...');
+        
+        // Clear container and append the table
+        container.innerHTML = '';
+        container.appendChild(table);
+        
+        console.log('[DEBUG] Table appended to container. Container now contains:', container.childNodes.length, 'child nodes');
+        console.log(`[DEBUG] Displayed preview for ${data.length} products.`);
         
         // Initialize the floating scroll bar after the table is created
+        console.log('[DEBUG] Initializing floating scroll bar...');
         this.initFloatingScrollBar();
         
         // Validate all editable fields after the table is created
@@ -314,9 +438,14 @@ class FeedManager {
                         field.classList.add('under-minimum');
                         field.classList.remove('over-limit');
                         
+                        // Apply red background to invalid fields
+                        field.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                        field.style.borderColor = '#dc3545';
+                        
                         // Update the character count display
                         const charCountDisplay = field.nextElementSibling;
                         if (charCountDisplay && charCountDisplay.classList.contains('char-count')) {
+                            charCountDisplay.textContent = `${currentLength} / ${minLength}`;
                             charCountDisplay.style.color = '#dc3545'; // Red for error
                         }
                         
@@ -326,9 +455,14 @@ class FeedManager {
                         field.classList.remove('under-minimum');
                         field.classList.add('over-limit');
                         
+                        // Apply red background to invalid fields
+                        field.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                        field.style.borderColor = '#dc3545';
+                        
                         // Update the character count display
                         const charCountDisplay = field.nextElementSibling;
                         if (charCountDisplay && charCountDisplay.classList.contains('char-count')) {
+                            charCountDisplay.textContent = `${currentLength} / ${minLength}`;
                             charCountDisplay.style.color = '#dc3545'; // Red for error
                         }
                         
@@ -336,8 +470,17 @@ class FeedManager {
                         console.log(`[FeedManager] Post-display validation: Field "${fieldType}" exceeds maximum length (${currentLength}/${maxLength})`);
                     } else {
                         // Valid length - apply green styling to the field
+                        field.classList.remove('under-minimum');
+                        field.classList.remove('over-limit');
                         field.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
                         field.style.borderColor = '#28a745';
+                        
+                        // Update the character count display
+                        const charCountDisplay = field.nextElementSibling;
+                        if (charCountDisplay && charCountDisplay.classList.contains('char-count')) {
+                            charCountDisplay.textContent = `${currentLength} / ${minLength}`;
+                            charCountDisplay.style.color = '#28a745'; // Green for success
+                        }
                     }
                 }
             });
@@ -385,6 +528,10 @@ class FeedManager {
                 field.classList.remove('over-limit');
                 charCountDisplay.style.color = '#dc3545'; // Red for error
                 
+                // Apply red background to invalid fields
+                field.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                field.style.borderColor = '#dc3545';
+                
                 // Mark the row as needing fix ONLY if it's been specifically navigated to
                 const row = field.closest('tr');
                 if (row && row.classList.contains('validation-focus')) {
@@ -394,9 +541,7 @@ class FeedManager {
                 // Log validation issue
                 if (row) {
                     const offerId = row.dataset.offerId;
-                    if (offerId && this.managers.validationUIManager) {
-                        console.log(`[FeedManager] Field "${type}" (Row ${rowIndex}) does NOT meet requirements. Length: ${currentCount}/${minLength}`);
-                    }
+                    console.log(`[FeedManager] Field "${type}" (Row ${rowIndex}) does NOT meet requirements. Length: ${currentCount}/${minLength}`);
                 }
             } else if (currentCount > maxLength) {
                 // Over maximum length - show error state
@@ -404,6 +549,10 @@ class FeedManager {
                 field.classList.add('over-limit');
                 charCountDisplay.style.color = '#dc3545'; // Red for error
                 
+                // Apply red background to invalid fields
+                field.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                field.style.borderColor = '#dc3545';
+                
                 // Mark the row as needing fix ONLY if it's been specifically navigated to
                 const row = field.closest('tr');
                 if (row && row.classList.contains('validation-focus')) {
@@ -413,9 +562,7 @@ class FeedManager {
                 // Log validation issue
                 if (row) {
                     const offerId = row.dataset.offerId;
-                    if (offerId && this.managers.validationUIManager) {
-                        console.log(`[FeedManager] Field "${type}" (Row ${rowIndex}) exceeds maximum length. Length: ${currentCount}/${maxLength}`);
-                    }
+                    console.log(`[FeedManager] Field "${type}" (Row ${rowIndex}) exceeds maximum length. Length: ${currentCount}/${maxLength}`);
                 }
             } else {
                 // Valid length - show success state
@@ -431,10 +578,14 @@ class FeedManager {
                 const row = field.closest('tr');
                 if (row) {
                     const offerId = row.dataset.offerId;
-                    if (offerId && this.managers.validationUIManager) {
+                    if (offerId) {
                         console.log(`[FeedManager] Field "${type}" (Row ${rowIndex}) meets requirements on load/update. Length: ${currentCount}`);
                         // Notify ValidationUIManager to remove the issue
-                        this.managers.validationUIManager.markIssueAsFixed(offerId, type);
+                        // Try to get the latest reference to validationUIManager from the managers object
+                        const validationUIManager = this.managers.validationUIManager;
+                        if (validationUIManager && typeof validationUIManager.markIssueAsFixed === 'function') {
+                            validationUIManager.markIssueAsFixed(offerId, type);
+                        }
                         
                         // Remove the needs-fix class if all fields in the row are valid
                         const invalidFields = row.querySelectorAll('.editable-field.under-minimum, .editable-field.over-limit');
@@ -643,14 +794,23 @@ class FeedManager {
     * that stays fixed at the top of the viewport during vertical scrolling.
     */
    initFloatingScrollBar() {
+       console.log('[DEBUG] ==================== INIT FLOATING SCROLL BAR ====================');
+       
        // Get references to the elements
        const dataContainer = document.querySelector('.data-container');
        const floatingScroll = document.querySelector('.floating-scroll');
        const scrollTrack = document.querySelector('.scroll-track');
        const scrollThumb = document.querySelector('.scroll-thumb');
        
+       console.log('[DEBUG] Floating scroll elements:', {
+           dataContainer: !!dataContainer,
+           floatingScroll: !!floatingScroll,
+           scrollTrack: !!scrollTrack,
+           scrollThumb: !!scrollThumb
+       });
+       
        if (!dataContainer || !floatingScroll || !scrollTrack || !scrollThumb) {
-           console.error('Required elements for floating scroll bar not found');
+           console.error('[DEBUG] Required elements for floating scroll bar not found');
            return;
        }
        
@@ -659,8 +819,11 @@ class FeedManager {
        
        // Calculate and set initial thumb width based on table width vs container width
        const table = dataContainer.querySelector('.preview-table');
+       console.log('[DEBUG] Looking for preview table in data container:', !!table);
+       
        if (!table) {
-           console.error('Preview table not found');
+           console.error('[DEBUG] Preview table not found in initFloatingScrollBar');
+           console.log('[DEBUG] Data container contents:', dataContainer.innerHTML);
            return;
        }
        

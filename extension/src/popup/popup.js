@@ -1,36 +1,7 @@
 // src/popup/popup.js - Refactored for Message Passing
 
-// Utility function for debouncing
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Character counter function
-window.updateCharCount = function(element, maxLength) {
-    const content = element.innerText || element.textContent;
-    const charCount = content.length;
-    const countDisplay = element.nextElementSibling;
-    const isDescription = element.dataset.field === 'description';
-    const minRequired = isDescription ? 90 : 25; // Assuming title min is 25 based on context
-
-    countDisplay.textContent = `${charCount}/${maxLength}`;
-
-    if (charCount < minRequired) {
-        countDisplay.style.color = '#dc3545'; // Red
-    } else if (charCount > maxLength) {
-        countDisplay.style.color = '#dc3545'; // Red
-    } else {
-        countDisplay.style.color = '#28a745'; // Green
-    }
-};
+// No imports needed - functions are now globally available
+// from popup_utils.js and firebase_mock.js
 
 // Basic placeholder for MonitoringSystem if not defined elsewhere
 if (typeof MonitoringSystem === 'undefined') {
@@ -44,8 +15,18 @@ if (typeof MonitoringSystem === 'undefined') {
 
 class PopupManager {
     constructor() {
+        // Check if application is initialized
+        if (!window.isConfigInitialized) {
+            console.warn("Application not initialized. Attempting to initialize now...");
+            if (typeof initializeApplication === 'function') {
+                initializeApplication();
+            } else {
+                console.error("Application initialization function not found. Some features may not work correctly.");
+            }
+        }
+        
         this.monitor = new MonitoringSystem();
-        console.log('Constructing PopupManager');
+        console.log('[DEBUG] Constructing PopupManager');
 
         // Placeholders for managers
         // TODO: Replace with actual implementations if available
@@ -72,6 +53,11 @@ class PopupManager {
         this.validateGMCButton = document.getElementById('validateGMC');
         this.logoutButton = document.getElementById('logoutButton');
         this.mainDropdown = document.getElementById('analysisDropdown');
+        
+        console.log('[DEBUG] UI element references:');
+        console.log('[DEBUG] fileInputEl:', fileInputEl);
+        console.log('[DEBUG] previewButtonEl:', previewButtonEl);
+        console.log('[DEBUG] previewContentContainer:', this.previewContentContainer);
         const searchInputEl = document.getElementById('searchInput');
         const searchColumnSelectEl = document.getElementById('searchColumn');
         const searchTypeSelectEl = document.getElementById('searchType');
@@ -84,8 +70,6 @@ class PopupManager {
             loadingManager: this.loadingManager,
             errorManager: this.errorManager,
             monitor: this.monitor,
-            authManager: new AuthManager(), // Add mock AuthManager
-            gmcApi: new GMCApi(), // Add GMCApi
             statusBarManager: null, // Placeholder
             searchManager: null,    // Placeholder
             validationUIManager: null, // Placeholder
@@ -95,14 +79,50 @@ class PopupManager {
             customRuleValidator: null // Placeholder
         };
         
-        // Add GMCValidator mock
-        if (typeof GMCValidator !== 'undefined') {
+        // Check if feature flags are available
+        const useFeatureFlags = typeof window.FEATURES !== 'undefined';
+        
+        // Add AuthManager based on feature flags
+        if (useFeatureFlags && window.FEATURES.USE_MOCK_AUTH && typeof AuthManager !== 'undefined') {
+            console.log('Using mock AuthManager based on feature flag');
+            managers.authManager = new AuthManager();
+        } else if (typeof AuthManager !== 'undefined') {
+            console.log('Using AuthManager (feature flags not available or mock disabled)');
+            managers.authManager = new AuthManager();
+        } else {
+            console.error('AuthManager not available');
+            managers.authManager = {
+                getAuthState: () => ({ gmcAuthenticated: false, firebaseAuthenticated: false, isProUser: false })
+            };
+        }
+        
+        // Add GMCApi based on feature flags
+        if (useFeatureFlags && window.FEATURES.USE_MOCK_GMC_API && typeof GMCApi !== 'undefined') {
+            console.log('Using mock GMCApi based on feature flag');
+            managers.gmcApi = new GMCApi();
+        } else if (typeof GMCApi !== 'undefined') {
+            console.log('Using GMCApi (feature flags not available or mock disabled)');
+            managers.gmcApi = new GMCApi();
+        } else {
+            console.error('GMCApi not available');
+            managers.gmcApi = {
+                isAuthenticated: false,
+                authenticate: () => Promise.resolve({ success: false })
+            };
+        }
+        
+        // Add GMCValidator based on feature flags
+        if (useFeatureFlags && window.FEATURES.USE_MOCK_GMC_API && typeof GMCValidator !== 'undefined') {
+            console.log('Using mock GMCValidator based on feature flag');
+            managers.gmcValidator = new GMCValidator(managers.gmcApi);
+        } else if (typeof GMCValidator !== 'undefined') {
+            console.log('Using GMCValidator (feature flags not available or mock disabled)');
             managers.gmcValidator = new GMCValidator(managers.gmcApi);
         } else {
-            // Create a simple mock if GMCValidator is not available
+            console.log('Creating simple GMCValidator mock');
             managers.gmcValidator = {
                 validate: async (feedData) => {
-                    console.log('Mock GMCValidator: validate called with', feedData);
+                    console.log('Simple GMCValidator mock: validate called with', feedData);
                     return {
                         isValid: true,
                         totalProducts: feedData.length,
@@ -134,26 +154,39 @@ class PopupManager {
             managers.searchManager = this.searchManager;
         } else { console.error("SearchManager class not found!"); }
 
-
-        // Instantiate managers that might need other managers
-        // Ensure ValidationUIManager class is loaded
-        if (typeof ValidationUIManager !== 'undefined') {
-            this.validationUIManager = new ValidationUIManager(
-                { validationTab: document.getElementById('validation-tab'), historyTableBody: document.getElementById('validationHistory'), feedPreviewContainer: this.previewContentContainer },
-                managers,
-                this.validationResults
-            );
-            managers.validationUIManager = this.validationUIManager;
-        } else { console.error("ValidationUIManager class not found!"); }
-
-        // Ensure FeedManager class is loaded
-        if (typeof FeedManager !== 'undefined') {
-            this.feedManager = new FeedManager(
-                { fileInput: fileInputEl, previewButton: previewButtonEl, previewContentContainer: this.previewContentContainer },
-                managers
-            );
-            managers.feedManager = this.feedManager;
-        } else { console.error("FeedManager class not found!"); }
+// Instantiate managers that might need other managers
+// Ensure ValidationUIManager class is loaded FIRST
+if (typeof ValidationUIManager !== 'undefined') {
+    console.log('[DEBUG] Initializing ValidationUIManager');
+    this.validationUIManager = new ValidationUIManager(
+        { validationTab: document.getElementById('validation-tab'), historyTableBody: document.getElementById('validationHistory'), feedPreviewContainer: this.previewContentContainer },
+        managers,
+        this.validationResults
+    );
+    managers.validationUIManager = this.validationUIManager;
+    console.log('[DEBUG] ValidationUIManager initialized and added to managers');
+} else { console.error("ValidationUIManager class not found!"); }
+// Ensure FeedManager class is loaded AFTER ValidationUIManager
+if (typeof FeedManager !== 'undefined') {
+    console.log('[DEBUG] Initializing FeedManager');
+    console.log('[DEBUG] fileInputEl:', fileInputEl);
+    console.log('[DEBUG] previewButtonEl:', previewButtonEl);
+    console.log('[DEBUG] previewContentContainer:', this.previewContentContainer);
+    
+    // Make sure we have valid DOM elements before initializing
+    if (!fileInputEl) console.error("fileInputEl is null or undefined");
+    if (!previewButtonEl) console.error("previewButtonEl is null or undefined");
+    if (!this.previewContentContainer) console.error("previewContentContainer is null or undefined");
+    
+    this.feedManager = new FeedManager(
+        { fileInput: fileInputEl, previewButton: previewButtonEl, previewContentContainer: this.previewContentContainer },
+        managers
+    );
+    managers.feedManager = this.feedManager;
+    console.log('[DEBUG] FeedManager initialized and added to managers');
+} else {
+    console.error("FeedManager class not found!");
+}
 
         // Ensure SettingsManager class is loaded
         if (typeof SettingsManager !== 'undefined') {
@@ -178,7 +211,22 @@ class PopupManager {
         // --- Set Cross-References ---
         // Ensure managers have references they need
         if (this.validationUIManager && this.feedManager) {
-             this.validationUIManager.managers.feedManager = this.feedManager;
+            console.log('[DEBUG] Setting cross-references between managers');
+            this.validationUIManager.managers.feedManager = this.feedManager;
+            console.log('[DEBUG] Set feedManager reference in validationUIManager');
+            
+            // Also ensure FeedManager has reference to ValidationUIManager
+            if (this.feedManager.managers) {
+                this.feedManager.managers.validationUIManager = this.validationUIManager;
+                console.log('[DEBUG] Set validationUIManager reference in feedManager');
+                console.log('[DEBUG] Cross-references set successfully');
+            } else {
+                console.error('[DEBUG] FeedManager.managers is undefined or null');
+            }
+        } else {
+            console.error('[DEBUG] Cannot set cross-references: validationUIManager or feedManager is missing');
+            console.log('[DEBUG] validationUIManager:', this.validationUIManager);
+            console.log('[DEBUG] feedManager:', this.feedManager);
         }
         // Add other necessary cross-references if managers depend on each other directly
 
@@ -191,7 +239,9 @@ class PopupManager {
      */
     async initializePopup() {
         console.log('Initializing Popup asynchronously...');
-        this.loadingManager.showLoading('Initializing...');
+        if (this.loadingManager && typeof this.loadingManager.showLoading === 'function') {
+            this.loadingManager.showLoading('Initializing...');
+        }
         try {
             // Get initial auth state from background
             const response = await this.sendMessageToBackground({ action: 'getAuthState' });
@@ -215,106 +265,48 @@ class PopupManager {
 
             // Setup UI elements
             this.setupElements();
-            this.statusBarManager?.updateUI(); // Update UI based on initial state
+            if (this.statusBarManager && typeof this.statusBarManager.updateUI === 'function') {
+                this.statusBarManager.updateUI(); // Update UI based on initial state
+            }
 
             // Setup remaining UI components and listeners
-            this.tableManager?.initialize(); // Use optional chaining
+            if (this.tableManager && typeof this.tableManager.initialize === 'function') {
+                this.tableManager.initialize();
+            }
             this.setupTabs(); // Setup tabs AFTER initial auth state is known
             this.setupEventListeners();
 
             // Initialize managers AFTER auth state is known and basic UI is set up
             // Pass state if needed, or let them fetch it via message if preferred
-            await this.settingsManager?.initialize(); // Use optional chaining
-            await this.bulkActionsManager?.initialize(); // Use optional chaining
+            if (this.settingsManager && typeof this.settingsManager.initialize === 'function') {
+                await this.settingsManager.initialize();
+            }
+            if (this.bulkActionsManager && typeof this.bulkActionsManager.initialize === 'function') {
+                await this.bulkActionsManager.initialize();
+            }
 
-            this.loadingManager.hideLoading();
+            if (this.loadingManager && typeof this.loadingManager.hideLoading === 'function') {
+                this.loadingManager.hideLoading();
+            }
             console.log('Popup initialization complete.');
 
         } catch (error) {
             console.error('Popup initialization failed:', error);
-            this.errorManager.showError(`Initialization failed: ${error.message}`);
-            this.loadingManager.hideLoading();
-            this.statusBarManager?.updateUI(true); // Show error state if possible
+            if (this.errorManager && typeof this.errorManager.showError === 'function') {
+                this.errorManager.showError(`Initialization failed: ${error.message}`);
+            }
+            if (this.loadingManager && typeof this.loadingManager.hideLoading === 'function') {
+                this.loadingManager.hideLoading();
+            }
+            if (this.statusBarManager && typeof this.statusBarManager.updateUI === 'function') {
+                this.statusBarManager.updateUI(true); // Show error state if possible
+            }
         }
     }
 
-    // Helper to send messages and handle responses/errors
+    // Helper to send messages and handle responses/errors - now using extracted functionality
     sendMessageToBackground(message) {
-        return new Promise((resolve, reject) => {
-            if (!chrome.runtime?.sendMessage) {
-                 console.error("chrome.runtime.sendMessage is not available.");
-                 // Resolve with an error state instead of rejecting to allow graceful handling
-                 return resolve({ success: false, error: { message: "Extension context invalidated." } });
-            }
-            
-            // For getAuthState action, return a mock response if we have a mock AuthManager
-            if (message.action === 'getAuthState') {
-                console.log("Intercepting getAuthState message with mock response");
-                const mockAuthManager = new AuthManager();
-                const state = mockAuthManager.getAuthState();
-                return resolve({ success: true, state: state });
-            }
-            
-            // For other actions, try to send to background, but provide fallbacks
-            try {
-                chrome.runtime.sendMessage(message, (response) => {
-                    const lastError = chrome.runtime.lastError;
-                    if (lastError) {
-                        console.error(`Message sending error for action "${message?.action}":`, lastError.message);
-                        
-                        // Provide mock responses for common actions
-                        if (message.action === 'authenticateGmc') {
-                            return resolve({
-                                success: true,
-                                merchantId: 'MOCK-123456',
-                                message: 'Mock GMC authentication successful'
-                            });
-                        } else if (message.action === 'signInWithFirebase') {
-                            return resolve({
-                                success: true,
-                                user: { uid: 'mock-user-id', email: 'mock@example.com' }
-                            });
-                        } else if (message.action === 'logoutGmc' || message.action === 'signOutFirebase') {
-                            return resolve({ success: true });
-                        } else {
-                            // Resolve with an error state for other actions
-                            resolve({ success: false, error: { message: lastError.message } });
-                        }
-                    } else if (response && response.error && !response.success) { // Check success flag with error
-                         console.error(`Background script error for action "${message?.action}":`, response.error);
-                         resolve(response); // Resolve with the error response from background
-                    }
-                    else {
-                        resolve(response); // Resolve with the entire response (could be success or specific non-error failure)
-                    }
-                });
-            } catch (error) {
-                console.error(`Error sending message for action "${message?.action}":`, error);
-                
-                // Provide mock responses for common actions
-                if (message.action === 'getAuthState') {
-                    const mockAuthManager = new AuthManager();
-                    const state = mockAuthManager.getAuthState();
-                    return resolve({ success: true, state: state });
-                } else if (message.action === 'authenticateGmc') {
-                    return resolve({
-                        success: true,
-                        merchantId: 'MOCK-123456',
-                        message: 'Mock GMC authentication successful'
-                    });
-                } else if (message.action === 'signInWithFirebase') {
-                    return resolve({
-                        success: true,
-                        user: { uid: 'mock-user-id', email: 'mock@example.com' }
-                    });
-                } else if (message.action === 'logoutGmc' || message.action === 'signOutFirebase') {
-                    return resolve({ success: true });
-                } else {
-                    // Resolve with an error state for other actions
-                    resolve({ success: false, error: { message: error.message } });
-                }
-            }
-        });
+        return window.PopupMessageHandler.sendMessageToBackground(message);
     }
 
 
@@ -330,6 +322,20 @@ class PopupManager {
     setupEventListeners() {
         console.log('Setting up event listeners');
         // FeedManager handles file input/preview
+        
+        // Add a direct event listener to the Preview Feed button as a backup
+        const previewButton = document.getElementById('previewFeed');
+        if (previewButton && this.feedManager) {
+            console.log('[DEBUG] Adding direct event listener to Preview Feed button as backup');
+            previewButton.addEventListener('click', () => {
+                console.log('[DEBUG] Preview Feed button clicked directly from PopupManager');
+                if (this.feedManager && typeof this.feedManager.handlePreview === 'function') {
+                    this.feedManager.handlePreview();
+                } else {
+                    console.error('[DEBUG] FeedManager or handlePreview method not available');
+                }
+            });
+        }
 
         // Analysis Dropdown
         if (this.mainDropdown) {
@@ -338,10 +344,26 @@ class PopupManager {
 
         // Validate Feed Button
         if (this.validateGMCButton) {
+            console.log('[DEBUG] Adding click event listener to Validate GMC button');
             // ValidationUIManager handles the validation process
-            this.validateGMCButton.addEventListener('click', () => this.triggerGMCValidation());
+            this.validateGMCButton.addEventListener('click', () => {
+                console.log('[DEBUG] Validate GMC button clicked');
+                this.triggerGMCValidation();
+            });
         } else {
-            console.warn('Validate GMC button not found.');
+            console.error('[DEBUG] Validate GMC button not found. Element ID should be "validateGMC"');
+            // Try to find it directly
+            const validateButton = document.getElementById('validateGMC');
+            if (validateButton) {
+                console.log('[DEBUG] Found Validate GMC button directly');
+                this.validateGMCButton = validateButton;
+                validateButton.addEventListener('click', () => {
+                    console.log('[DEBUG] Validate GMC button clicked (direct binding)');
+                    this.triggerGMCValidation();
+                });
+            } else {
+                console.error('[DEBUG] Validate GMC button not found even with direct query');
+            }
         }
 
         // --- Connect Button Listeners to Message Sending ---
@@ -382,229 +404,84 @@ class PopupManager {
     }
 
     handleDropdownChange(e) {
-        const selectedValue = e.target.value;
-        if (selectedValue === 'analyze-feed') {
-            // this.analyzeFeed(); // analyzeFeed method was removed
-            console.warn("Analyze Feed dropdown option selected, but analyzeFeed method is removed.");
-        }
+        return window.PopupEventHandlers.handleDropdownChange(e);
     }
 
     async triggerGMCValidation() {
-        // ValidationUIManager now orchestrates this
-        if (this.validationUIManager) {
-            // Pass current auth state if needed by VUIManager for custom rules check
-            // VUIManager constructor receives managers object which includes authManager
-            await this.validationUIManager.triggerGMCValidation();
-        } else {
-            console.error("ValidationUIManager not initialized.");
-            this.errorManager.showError("Validation UI is not ready.");
+        console.log('[DEBUG] PopupManager.triggerGMCValidation called');
+        
+        // Check if validationUIManager exists
+        if (!this.validationUIManager) {
+            console.error('[DEBUG] validationUIManager is not available');
+            if (this.errorManager) {
+                this.errorManager.showError("Validation UI Manager is not initialized. Please reload the extension.");
+            } else {
+                alert("Validation UI Manager is not initialized. Please reload the extension.");
+            }
+            return;
+        }
+        
+        console.log('[DEBUG] validationUIManager available:', this.validationUIManager);
+        
+        const managers = {
+            validationUIManager: this.validationUIManager
+        };
+        
+        console.log('[DEBUG] Calling PopupEventHandlers.triggerGMCValidation');
+        try {
+            return await window.PopupEventHandlers.triggerGMCValidation(managers, this.errorManager);
+        } catch (error) {
+            console.error('[DEBUG] Error in triggerGMCValidation:', error);
+            if (this.errorManager) {
+                this.errorManager.showError(`Validation failed: ${error.message}`);
+            } else {
+                alert(`Validation failed: ${error.message}`);
+            }
         }
     }
 
     async verifyOrAuthenticateGMC() {
-        this.loadingManager.showLoading('Checking GMC Connection...');
-        try {
-            const response = await this.sendMessageToBackground({ action: 'authenticateGmc' });
-
-            if (response?.success) {
-                const message = `Successfully connected to GMC (Merchant ID: ${response.merchantId})`;
-                this.errorManager.showSuccess(message, 3000);
-                // Refresh local state and update UI
-                const stateResponse = await this.sendMessageToBackground({ action: 'getAuthState' });
-                if (stateResponse?.success && stateResponse.state) {
-                    this.currentAuthState = stateResponse.state;
-                    this.statusBarManager?.updateAuthState(this.currentAuthState);
-                    this.statusBarManager?.updateUI();
-                } else {
-                     console.warn("Failed to refresh auth state after GMC auth.");
-                     this.errorManager.showError("Connected, but failed to refresh status.");
-                }
-            } else {
-                 throw new Error(response?.error?.message || 'GMC Authentication failed.');
-            }
-        } catch (error) {
-            let errorMessage = 'Could not connect to GMC.';
-             if (error.message && error.message.includes('No merchant account found')) {
-                 errorMessage = 'Connection failed: No Google Merchant Center account found or accessible.';
-             } else if (error.message) {
-                 errorMessage = `Connection failed: ${error.message}`;
-             }
-            this.errorManager.showError(errorMessage);
-            this.statusBarManager?.updateUI(true);
-        } finally {
-            this.loadingManager.hideLoading();
-        }
+        return window.PopupEventHandlers.verifyOrAuthenticateGMC(
+            this.sendMessageToBackground.bind(this),
+            this.loadingManager,
+            this.errorManager,
+            this.statusBarManager,
+            this.currentAuthState
+        );
     }
 
     async handleLogout() {
-        console.log('Logout button clicked');
-        this.loadingManager.showLoading('Logging out...');
-        try {
-            // Send messages for both GMC and Firebase logout
-            const results = await Promise.allSettled([
-                 this.sendMessageToBackground({ action: 'logoutGmc' }),
-                 this.sendMessageToBackground({ action: 'signOutFirebase' })
-            ]);
-
-            let gmcLogoutSuccess = results[0].status === 'fulfilled' && results[0].value?.success;
-            let firebaseLogoutSuccess = results[1].status === 'fulfilled' && results[1].value?.success;
-
-            // Log detailed results
-            console.log("Logout results:", results);
-
-            if (gmcLogoutSuccess || firebaseLogoutSuccess) { // Consider success if at least one succeeds
-                 this.errorManager.showSuccess('Logout successful.', 2000);
-            } else {
-                 // If both failed, show primary error (e.g., from GMC logout)
-                 const firstError = results.find(r => r.status === 'rejected')?.reason || results.find(r => r.status === 'fulfilled' && !r.value?.success)?.value?.error;
-                 throw new Error(firstError?.message || 'Logout failed for both services.');
-            }
-
-            // Refresh state and UI regardless of partial success
-            const stateResponse = await this.sendMessageToBackground({ action: 'getAuthState' });
-             if (stateResponse?.success && stateResponse.state) {
-                 this.currentAuthState = stateResponse.state;
-                 this.statusBarManager?.updateAuthState(this.currentAuthState);
-                 this.statusBarManager?.updateUI();
-             } else {
-                  console.warn("Failed to refresh auth state after logout.");
-             }
-
-            // Redirect to login page
-             window.location.href = 'login.html';
-
-        } catch (error) { // Catch errors from sendMessageToBackground or thrown errors
-            console.error('Logout failed:', error);
-            this.errorManager.showError(`Logout failed: ${error.message || 'Unknown error'}`);
-             // Attempt to update UI even on error
-             try {
-                 const stateResponse = await this.sendMessageToBackground({ action: 'getAuthState' });
-                 if (stateResponse?.success && stateResponse.state) {
-                     this.currentAuthState = stateResponse.state;
-                     this.statusBarManager?.updateAuthState(this.currentAuthState);
-                     this.statusBarManager?.updateUI();
-                 }
-             } catch (stateError) {
-                  console.error("Failed to update state after logout error:", stateError);
-             }
-        } finally {
-            this.loadingManager.hideLoading();
-        }
+        return window.PopupEventHandlers.handleLogout(
+            this.sendMessageToBackground.bind(this),
+            this.loadingManager,
+            this.errorManager,
+            this.statusBarManager,
+            this.currentAuthState
+        );
     }
 
     setupTabs() {
-         const tabButtons = document.querySelectorAll('.tab-button');
-         const tabPanels = document.querySelectorAll('.tab-panel');
-         if (!tabButtons.length || !tabPanels.length) {
-             console.warn("Tab setup skipped: Buttons or panels not found.");
-             return;
-         }
-
-         let initialLoadDone = { // Track if initial load was done for tabs needing it
-             validation: false,
-             settings: false,
-             feed: false // For bulk actions gating/loading
-         };
-
-         const handleTabClick = async (button) => { // Make async
-             const targetTab = button.dataset.tab;
-             if (!targetTab || button.classList.contains('active')) return;
-             console.log('Tab clicked:', targetTab);
-
-             // Deactivate all first
-             tabButtons.forEach(btn => btn.classList.remove('active'));
-             tabPanels.forEach(panel => panel.classList.remove('active'));
-
-             // Activate clicked button and corresponding panel
-             button.classList.add('active');
-             const targetPanel = document.getElementById(`${targetTab}-tab`);
-             if (!targetPanel) {
-                 console.warn(`Panel with ID "${targetTab}-tab" not found.`);
-                 return;
-             }
-             targetPanel.classList.add('active');
-             console.log('Activated panel:', `${targetTab}-tab`);
-
-             // --- Handle Tab Specific Actions ---
-             this.loadingManager.showLoading(`Loading ${targetTab} tab...`);
-             try {
-                 // Refresh auth state on tab switch to ensure UI reflects current status
-                 const stateResponse = await this.sendMessageToBackground({ action: 'getAuthState' });
-                 if (!stateResponse?.success || !stateResponse.state) throw new Error("Failed to refresh auth state.");
-                 this.currentAuthState = stateResponse.state;
-                 // Update managers needing state
-                 this.statusBarManager?.updateAuthState(this.currentAuthState);
-                 this.statusBarManager?.updateUI(); // Update status bar immediately
-
-                 // Trigger manager initializations or updates based on tab
-                 if (targetTab === 'feed') {
-                     if (this.feedManager) setTimeout(() => this.feedManager.initFloatingScrollBar(), 100);
-                     if (this.bulkActionsManager) {
-                         console.log('Feed tab activated, applying bulk actions feature gating...');
-                         await this.bulkActionsManager.applyFeatureGating();
-                         if (this.bulkActionsManager.isPro && !initialLoadDone.feed) {
-                              await this.bulkActionsManager.loadTemplates();
-                              initialLoadDone.feed = true;
-                         }
-                     }
-                 } else if (targetTab === 'validation') {
-                     if (this.validationUIManager && !initialLoadDone.validation) {
-                         console.log('Validation tab activated, loading history...');
-                         await this.validationUIManager.loadValidationHistoryFromFirestore();
-                         initialLoadDone.validation = true;
-                     } else if (this.validationUIManager) {
-                         console.log('Validation tab re-activated.');
-                         // Optionally refresh: await this.validationUIManager.loadValidationHistoryFromFirestore();
-                     }
-                 } else if (targetTab === 'settings') {
-                     if (this.settingsManager) {
-                         console.log('Settings tab activated, applying feature gating...');
-                         await this.settingsManager.applyFeatureGating();
-                         if (this.settingsManager.isPro && !initialLoadDone.settings) {
-                             await this.settingsManager.loadSettings();
-                             await this.settingsManager.loadCustomRules();
-                             initialLoadDone.settings = true;
-                         } else if (this.settingsManager.isPro) {
-                              console.log('Settings tab re-activated.');
-                             // Optionally refresh: await this.settingsManager.loadSettings(); await this.settingsManager.loadCustomRules();
-                         }
-                     }
-                 }
-             } catch (error) {
-                  console.error(`Error handling tab switch for ${targetTab}:`, error);
-                  this.errorManager.showError(`Failed to load ${targetTab} tab content.`);
-             } finally {
-                  this.loadingManager.hideLoading();
-             }
-             // ------------------------------------
-         };
-
-         tabButtons.forEach(button => {
-             button.addEventListener('click', () => handleTabClick(button));
-         });
-
-         // Activate initial tab and trigger its actions AFTER ensuring auth state is loaded
-         const activateInitialTab = () => {
-             const initialActiveButton = document.querySelector('.tab-button.active') || tabButtons[0];
-             if (initialActiveButton && !initialActiveButton.classList.contains('active-init')) {
-                 initialActiveButton.classList.add('active-init'); // Mark as initially processed
-                 handleTabClick(initialActiveButton); // Trigger actions for initial tab
-             } else if (initialActiveButton) {
-                  console.log("Initial tab already marked active, skipping initial click simulation.");
-                  // Potentially force refresh/load if needed on popup reopen?
-             }
-         };
-
-         // Ensure initial auth state is loaded before activating the initial tab
-         if (this.currentAuthState) {
-             activateInitialTab();
-         } else {
-             // If initializePopup failed before getting state, this might not run.
-             console.warn("Initial auth state not available yet for initial tab activation.");
-             // Maybe activate first tab visually without triggering actions?
-             // tabButtons[0]?.classList.add('active');
-             // tabPanels[0]?.classList.add('active');
-         }
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabPanels = document.querySelectorAll('.tab-panel');
+        
+        // Create a managers object with all the managers needed for tab functionality
+        const managers = {
+            feedManager: this.feedManager,
+            validationUIManager: this.validationUIManager,
+            bulkActionsManager: this.bulkActionsManager,
+            settingsManager: this.settingsManager,
+            statusBarManager: this.statusBarManager
+        };
+        
+        window.PopupEventHandlers.setupTabs(
+            tabButtons,
+            tabPanels,
+            this.sendMessageToBackground.bind(this),
+            this.loadingManager,
+            this.errorManager,
+            managers,
+            this.currentAuthState
+        );
     }
 
 } // End of PopupManager class
@@ -613,572 +490,72 @@ class PopupManager {
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Popup DOMContentLoaded event fired");
     
-    // Create mock Firebase implementation
-    if (typeof firebase === 'undefined') {
-        console.log("Creating mock Firebase implementation");
-        window.firebase = {
-            initializeApp: (config) => {
-                console.log("Mock Firebase initialized with config:", config);
-                return {};
-            },
-            auth: () => ({
-                currentUser: { uid: 'mock-user-id', email: 'mock@example.com' },
-                onAuthStateChanged: (callback) => {
-                    callback({ uid: 'mock-user-id', email: 'mock@example.com' });
-                    return () => {}; // Unsubscribe function
-                },
-                signInWithPopup: () => Promise.resolve({ user: { uid: 'mock-user-id', email: 'mock@example.com' } }),
-                signOut: () => Promise.resolve()
-            }),
-            firestore: () => {
-                const mockData = {
-                    users: {
-                        'mock-user-id': {
-                            profile: {
-                                email: 'mock@example.com',
-                                name: 'Mock User',
-                                subscriptionStatus: 'pro',
-                                subscriptionExpiry: new Date(2025, 11, 31)
-                            },
-                            scheduledValidation: {
-                                enabled: true,
-                                frequency: 'weekly',
-                                dayOfWeek: 1,
-                                time: '09:00',
-                                notificationsEnabled: true
-                            },
-                            validationHistory: [
-                                {
-                                    id: 'mock-history-1',
-                                    timestamp: new Date(),
-                                    feedId: 'mock-feed-1',
-                                    totalProducts: 100,
-                                    validProducts: 90,
-                                    issues: []
-                                }
-                            ],
-                            correctionTemplates: [
-                                {
-                                    id: 'mock-template-1',
-                                    name: 'Title Fixes',
-                                    created: new Date(),
-                                    corrections: [],
-                                    appliedCount: 5
-                                }
-                            ],
-                            customRules: [
-                                {
-                                    id: 'mock-rule-1',
-                                    name: 'Title Length Rule',
-                                    field: 'title',
-                                    type: 'length',
-                                    parameters: { min: 30, max: 150 },
-                                    enabled: true
-                                }
-                            ]
+    // Add direct event listeners to the buttons as a final backup
+    const previewButton = document.getElementById('previewFeed');
+    const validateButton = document.getElementById('validateGMC');
+    
+    if (validateButton) {
+        console.log('[DEBUG] Adding direct event listener to Validate GMC button in DOMContentLoaded');
+        validateButton.addEventListener('click', () => {
+            console.log('[DEBUG] Validate GMC button clicked from DOMContentLoaded handler');
+            
+            // Try to use the ValidationUIManager if available
+            if (window.validationUIManagerInstance && typeof window.validationUIManagerInstance.triggerGMCValidation === 'function') {
+                console.log('[DEBUG] Using global validationUIManagerInstance.triggerGMCValidation()');
+                window.validationUIManagerInstance.triggerGMCValidation()
+                    .catch(error => {
+                        console.error('[DEBUG] Error in validationUIManagerInstance.triggerGMCValidation():', error);
+                        alert(`Validation failed: ${error.message}`);
+                    });
+            } else {
+                console.log('[DEBUG] No global validationUIManagerInstance found, showing message');
+                // Just show a message instead of creating a popup
+                alert('Validation triggered. Please check the Validation History tab for results.');
+                
+                // Try to switch to the validation tab
+                const validationTabButton = document.querySelector('.tab-button[data-tab="validation"]');
+                if (validationTabButton) {
+                    validationTabButton.click();
+                }
+            }
+        });
+    }
+    
+    if (previewButton) {
+        console.log('[DEBUG] Adding direct event listener to Preview Feed button in DOMContentLoaded');
+        previewButton.addEventListener('click', () => {
+            console.log('[DEBUG] Preview Feed button clicked from DOMContentLoaded handler');
+            // Try to find FeedManager instance
+            if (window.feedManagerInstance && typeof window.feedManagerInstance.handlePreview === 'function') {
+                window.feedManagerInstance.handlePreview();
+            } else {
+                console.log('[DEBUG] No global feedManagerInstance found, trying to read file directly');
+                // Fallback implementation
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput && fileInput.files && fileInput.files[0]) {
+                    console.log('[DEBUG] Reading file directly:', fileInput.files[0].name);
+                    // Simple file reading logic
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const csvContent = e.target.result;
+                        console.log('[DEBUG] File read successfully, length:', csvContent.length);
+                        // Display in previewContent
+                        const previewContent = document.getElementById('previewContent');
+                        if (previewContent) {
+                            previewContent.innerHTML = `<pre>${csvContent.substring(0, 1000)}...</pre>`;
                         }
-                    }
-                };
-                
-                return {
-                    collection: (collectionPath) => {
-                        console.log(`Mock Firestore: Accessing collection ${collectionPath}`);
-                        const pathParts = collectionPath.split('/');
-                        const collectionName = pathParts[0];
-                        
-                        return {
-                            doc: (docId) => {
-                                console.log(`Mock Firestore: Accessing document ${docId} in ${collectionPath}`);
-                                
-                                return {
-                                    collection: (subCollectionPath) => {
-                                        console.log(`Mock Firestore: Accessing subcollection ${subCollectionPath} in ${collectionPath}/${docId}`);
-                                        
-                                        // --- Start Enhanced Mock Subcollection Logic ---
-                                        if (collectionName === 'users' && docId === 'mock-user-id' && subCollectionPath === 'validationHistory') {
-                                            console.log(`Mock Firestore: Handling specific subcollection: ${subCollectionPath}`);
-                                            let historyData = [...mockData.users['mock-user-id'].validationHistory]; // Clone to avoid modifying original mock data
-                                            
-                                            // Define the chainable query object AND add/doc methods directly
-                                            let historyCollectionRef = {
-                                                _historyData: mockData.users['mock-user-id'].validationHistory, // Reference to the mock data array
-                                                _orderByField: null,
-                                                _orderByDirection: 'desc',
-                                                _limit: Infinity,
-                                                _filters: [],
-
-                                                // --- Chainable Query Methods ---
-                                                orderBy: function(field, direction = 'asc') {
-                                                    console.log(`Mock Firestore Query: orderBy(${field}, ${direction})`);
-                                                    this._orderByField = field;
-                                                    this._orderByDirection = direction.toLowerCase() === 'desc' ? 'desc' : 'asc';
-                                                    // Reset filters and limit when ordering changes? (Mimic Firestore behavior if needed)
-                                                    // this._filters = [];
-                                                    // this._limit = Infinity;
-                                                    return this;
-                                                },
-                                                where: function(field, operator, value) {
-                                                    console.log(`Mock Firestore Query: where(${field}, ${operator}, ${value})`);
-                                                    this._filters.push({ field, operator, value });
-                                                    return this;
-                                                },
-                                                limit: function(num) {
-                                                    console.log(`Mock Firestore Query: limit(${num})`);
-                                                    this._limit = num;
-                                                    return this;
-                                                },
-
-                                                // --- Execution Method ---
-                                                get: async () => {
-                                                    console.log("Mock Firestore Query: Executing get()");
-                                                    let results = [...this._historyData]; // Use internal reference, clone
-
-                                                    // Apply filters
-                                                    this._filters.forEach(filter => {
-                                                        if (filter.field === 'timestamp' && filter.operator === '>=') {
-                                                            results = results.filter(item => {
-                                                                const itemTimestamp = item.timestamp instanceof Date ? item.timestamp : new Date(item.timestamp);
-                                                                const filterTimestamp = filter.value && typeof filter.value.toDate === 'function' ? filter.value.toDate() : new Date(filter.value);
-                                                                return itemTimestamp >= filterTimestamp;
-                                                            });
-                                                        } else {
-                                                            console.warn(`Mock Firestore: Unsupported where clause: ${filter.field} ${filter.operator}`);
-                                                        }
-                                                    });
-
-                                                    // Apply sorting
-                                                    if (this._orderByField === 'timestamp') {
-                                                        results.sort((a, b) => {
-                                                            const dateA = a.timestamp instanceof Date ? a.timestamp : new Date(a.timestamp);
-                                                            const dateB = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
-                                                            const comparison = dateA - dateB;
-                                                            return this._orderByDirection === 'desc' ? -comparison : comparison;
-                                                        });
-                                                    } else if (this._orderByField) {
-                                                         console.warn(`Mock Firestore: Unsupported orderBy field: ${this._orderByField}`);
-                                                    }
-
-                                                    // Apply limit
-                                                    results = results.slice(0, this._limit);
-
-                                                    // Format results like QuerySnapshot
-                                                    // Ensure mockDocs is always an array before using it
-                                                    const finalMockDocs = Array.isArray(results) ? results.map((item, index) => ({
-                                                        id: item.id || `mock-history-${index + 1}`,
-                                                        data: () => item,
-                                                        exists: true
-                                                    })) : []; // Default to empty array if results is not an array
-
-                                                    console.log(`Mock Firestore Query: Returning ${finalMockDocs.length} documents.`);
-                                                    return Promise.resolve({
-                                                        empty: finalMockDocs.length === 0,
-                                                        size: finalMockDocs.length,
-                                                        docs: finalMockDocs,
-                                                        forEach: (callback) => {
-                                                            // Check again just to be safe before iterating
-                                                            if (Array.isArray(finalMockDocs)) {
-                                                                finalMockDocs.forEach(doc => callback(doc));
-                                                            }
-                                                        }
-                                                    });
-                                                },
-
-                                                // --- Modification Methods ---
-                                                add: async (data) => {
-                                                    console.log("Mock Firestore: Executing add()", data);
-                                                    const newId = `mock-history-${Date.now()}`; // Simple unique ID
-                                                    const newData = { ...data, id: newId }; // Add the ID to the data
-                                                    // Ensure timestamp is a Date object if using serverTimestamp()
-                                                    if (data.timestamp && typeof data.timestamp === 'object' && data.timestamp._methodName === 'FieldValue.serverTimestamp') {
-                                                       newData.timestamp = new Date(); // Replace placeholder with actual date
-                                                    }
-                                                    this._historyData.push(newData); // Add to the referenced mock data array
-                                                    console.log("Mock Firestore: History data after add:", this._historyData);
-                                                    return Promise.resolve({ id: newId }); // Return ref-like object
-                                                },
-                                                doc: (subDocId) => {
-                                                    console.log(`Mock Firestore: Accessing history doc ${subDocId}`);
-                                                    // Find the specific document in the history data
-                                                    const docData = this._historyData.find(item => item.id === subDocId);
-                                                    return {
-                                                        get: () => Promise.resolve({
-                                                            exists: !!docData,
-                                                            id: subDocId,
-                                                            data: () => docData
-                                                        }),
-                                                        // Add set, update, delete mocks here if needed later
-                                                        set: (data) => { console.warn("Mock Firestore: set() on history doc not fully implemented."); return Promise.resolve(); },
-                                                        update: (data) => { console.warn("Mock Firestore: update() on history doc not fully implemented."); return Promise.resolve(); },
-                                                        delete: () => { console.warn("Mock Firestore: delete() on history doc not fully implemented."); return Promise.resolve(); }
-                                                    };
-                                                }
-                                            };
-                                            // Return the collection reference object which has chainable methods AND add/doc
-                                            return historyCollectionRef;
-                                        } else {
-                                             // --- Fallback for other subcollections (Original Generic Mock) ---
-                                            console.warn(`Mock Firestore: Using generic mock for subcollection: ${subCollectionPath}`);
-                                            // Ensure fallback also returns a chainable object
-                                            let fallbackQuery = {
-                                                orderBy: function() { return this; },
-                                                where: function() { return this; },
-                                                limit: function() { return this; },
-                                                get: () => Promise.resolve({ empty: true, size: 0, docs: [], forEach: () => {} }),
-                                                // Basic doc/add for completeness, returning minimal promises
-                                                doc: (subDocId) => ({
-                                                    get: () => Promise.resolve({ exists: false, id: subDocId, data: () => undefined }),
-                                                    set: (data) => Promise.resolve(),
-                                                    update: (data) => Promise.resolve(),
-                                                    delete: () => Promise.resolve()
-                                                }),
-                                                add: (data) => Promise.resolve({ id: 'mock-generic-doc-id' })
-                                            };
-                                            return fallbackQuery;
-                                        }
-                                        // --- End Enhanced Mock Subcollection Logic ---
-                                    },
-                                    get: () => Promise.resolve({
-                                        exists: true,
-                                        id: docId,
-                                        data: () => {
-                                            if (collectionName === 'users' && docId === 'mock-user-id') {
-                                                return mockData.users[docId];
-                                            }
-                                            return { name: 'Mock Document' };
-                                        }
-                                    }),
-                                    set: (data, options) => Promise.resolve(),
-                                    update: (data) => Promise.resolve()
-                                };
-                            },
-                            add: (data) => Promise.resolve({ id: 'mock-doc-id' }),
-                            where: () => ({
-                                get: () => Promise.resolve({
-                                    empty: false,
-                                    docs: [
-                                        {
-                                            id: 'mock-doc-id',
-                                            data: () => ({ name: 'Mock Document' }),
-                                            exists: true
-                                        }
-                                    ]
-                                })
-                            })
-                        };
-                    }
-                };
-            }
-        };
-        
-        // Add Firestore static methods to the firebase object
-        window.firebase.firestore.FieldValue = {
-            serverTimestamp: () => new Date(),
-            increment: (n) => n,
-            arrayUnion: (...items) => items
-        };
-        
-        window.firebase.firestore.Timestamp = {
-            now: () => ({ toDate: () => new Date() }),
-            fromDate: (date) => ({ toDate: () => date })
-        };
-    }
-    
-    // Create mock classes for any missing dependencies
-    if (typeof GMCApi === 'undefined') {
-        console.log("Creating mock GMCApi class");
-        window.GMCApi = class GMCApi {
-            constructor() {
-                console.log("Mock GMCApi created");
-                this.isAuthenticated = true;
-                this.testMode = true;
-            }
-            authenticate() { return Promise.resolve({ success: true }); }
-            logout() { console.log("Mock GMCApi: logout called"); }
-            getAuthState() { return { isAuthenticated: true }; }
-            
-            // Add the missing validateFeed method
-            async validateFeed(feedData) {
-                console.log('Mock GMCApi: validateFeed called with', feedData);
-                // Simulate a delay
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // Generate mock validation results
-                const mockIssues = [];
-                const totalCount = feedData.length;
-                let validCount = totalCount;
-                
-                // Add some mock issues for demonstration
-                feedData.forEach((item, index) => {
-                    const rowIndex = index + 1;
-                    const offerId = item.id || `mock-id-${rowIndex}`;
-                    
-                    // Check title length (example validation)
-                    if (item.title && item.title.length < 30) {
-                        mockIssues.push({
-                            rowIndex: rowIndex,
-                            offerId: offerId,
-                            field: 'title',
-                            type: 'warning',
-                            message: `Title too short (${item.title.length} chars). Minimum 30 characters recommended.`
-                        });
-                    }
-                    
-                    // Check description length (example validation)
-                    if (item.description && item.description.length < 90) {
-                        mockIssues.push({
-                            rowIndex: rowIndex,
-                            offerId: offerId,
-                            field: 'description',
-                            type: 'warning',
-                            message: `Description too short (${item.description.length} chars). Minimum 90 characters recommended.`
-                        });
-                    }
-                });
-                
-                return {
-                    isValid: mockIssues.length === 0,
-                    totalProducts: totalCount,
-                    validProducts: validCount - mockIssues.length,
-                    issues: mockIssues
-                };
-            }
-        };
-    }
-    
-    if (typeof GMCValidator === 'undefined') {
-        console.log("Creating mock GMCValidator class");
-        window.GMCValidator = class GMCValidator {
-            constructor(gmcApi) {
-                console.log("Mock GMCValidator created");
-                this.gmcApi = gmcApi;
-            }
-            
-            async validate(feedData) {
-                console.log('[GMCValidator] Initiating API validation...');
-                if (!feedData || feedData.length === 0) {
-                    console.warn('[GMCValidator] No feed data provided for validation.');
-                    return {
-                        isValid: true,
-                        totalProducts: 0,
-                        validProducts: 0,
-                        issues: []
                     };
-                }
-
-                try {
-                    // Call the GMCApi's validateFeed method
-                    const results = await this.gmcApi.validateFeed(feedData);
-                    console.log('[GMCValidator] Received API validation results:', results);
-                    return results;
-                } catch (error) {
-                    console.error('[GMCValidator] API Validation failed:', error);
-                    // Re-throw the error so the UI layer can handle it
-                    throw new Error(`GMC API validation failed: ${error.message}`);
+                    reader.readAsText(fileInput.files[0]);
+                } else {
+                    alert('Please select a file first');
                 }
             }
-        };
+        });
     }
     
-    if (typeof AuthManager === 'undefined') {
-        console.log("Creating mock AuthManager class");
-        window.AuthManager = class AuthManager {
-            constructor() {
-                console.log("Mock AuthManager created");
-                this.gmcAuthenticated = true;
-                this.firebaseAuthenticated = true;
-                this.isProUser = true;
-                this.gmcMerchantId = 'MOCK-123456';
-                this.firebaseUserId = 'mock-user-id';
-            }
-            init() { return Promise.resolve(true); }
-            getAuthState() {
-                return {
-                    gmcAuthenticated: this.gmcAuthenticated,
-                    firebaseAuthenticated: this.firebaseAuthenticated,
-                    isProUser: this.isProUser,
-                    gmcMerchantId: this.gmcMerchantId,
-                    firebaseUserId: this.firebaseUserId
-                };
-            }
-            signInWithFirebase() {
-                this.firebaseAuthenticated = true;
-                return Promise.resolve({ success: true });
-            }
-            signOutFirebase() {
-                this.firebaseAuthenticated = false;
-                return Promise.resolve({ success: true });
-            }
-            checkProStatus() { return Promise.resolve(this.isProUser); }
-        };
-    }
-    
-    if (typeof StatusBarManager === 'undefined') {
-        console.log("Creating mock StatusBarManager class");
-        window.StatusBarManager = class StatusBarManager {
-            constructor() { console.log("Mock StatusBarManager created"); }
-            updateAuthState() {}
-            updateUI() {}
-        };
-    }
-    
-    if (typeof SearchManager === 'undefined') {
-        console.log("Creating mock SearchManager class");
-        window.SearchManager = class SearchManager {
-            constructor() { console.log("Mock SearchManager created"); }
-        };
-    }
-    
-    if (typeof ValidationUIManager === 'undefined') {
-        console.log("Creating mock ValidationUIManager class");
-        window.ValidationUIManager = class ValidationUIManager {
-            constructor(elements, managers) {
-                console.log("Mock ValidationUIManager created");
-                this.elements = elements || {};
-                this.managers = managers || {};
-                
-                // Ensure required managers exist to prevent errors
-                if (!this.managers.feedManager) {
-                    console.log("Adding mock FeedManager to ValidationUIManager");
-                    this.managers.feedManager = new FeedManager();
-                }
-                if (!this.managers.authManager) {
-                    console.log("Adding mock AuthManager to ValidationUIManager");
-                    this.managers.authManager = new AuthManager();
-                }
-                if (!this.managers.errorManager) {
-                    console.log("Adding mock ErrorManager to ValidationUIManager");
-                    this.managers.errorManager = { showError: (msg) => alert(`Error: ${msg}`) };
-                }
-                
-                this.validationResults = {};
-                this.offerIdToValidatorRowIndexMap = {};
-            }
-            triggerGMCValidation() { return Promise.resolve(); }
-            loadValidationHistoryFromFirestore() { return Promise.resolve(); }
-            markIssueAsFixed() { return Promise.resolve(); }
-        };
-    }
-    
-    if (typeof FeedManager === 'undefined') {
-        console.log("Creating mock FeedManager class");
-        window.FeedManager = class FeedManager {
-            constructor(elements, managers) {
-                console.log("Mock FeedManager created");
-                this.elements = elements || {};
-                this.managers = managers || {};
-                
-                // Ensure required managers exist to prevent errors
-                if (!this.managers.loadingManager) {
-                    this.managers.loadingManager = {
-                        showLoading: (msg) => console.log('Loading:', msg),
-                        hideLoading: () => console.log('Hide Loading')
-                    };
-                }
-                if (!this.managers.errorManager) {
-                    this.managers.errorManager = {
-                        showError: (msg) => alert(`Error: ${msg}`),
-                        showSuccess: (msg) => console.log(`Success: ${msg}`)
-                    };
-                }
-                if (!this.managers.searchManager) {
-                    this.managers.searchManager = new SearchManager();
-                }
-                if (!this.managers.validationUIManager) {
-                    this.managers.validationUIManager = { markIssueAsFixed: () => {} };
-                }
-                
-                this.offerIdToRowIndexMap = {};
-            }
-            initFloatingScrollBar() {}
-            handlePreview() {}
-            getTableData() {
-                return [
-                    {
-                        id: 'PROD001',
-                        title: 'Advanced Portable Speakers',
-                        description: 'Built to last, this portable speakers combines ultra-fast processing with user-friendly features.',
-                        price: '449.56 USD',
-                        image_link: 'https://example.com/images/prod001.jpg',
-                        link: 'https://example.com/products/prod001'
-                    }
-                ];
-            }
-            getCorrectedTableData() { return this.getTableData(); }
-            getAppliedCorrections() { return []; }
-        };
-    }
-    
-    // Create a modified SettingsManager that doesn't throw an error when AuthManager is missing
-    console.log("Creating modified SettingsManager class");
-    const originalSettingsManager = window.SettingsManager;
-    window.SettingsManager = function(elements, managers) {
-        console.log("Modified SettingsManager created");
-        this.elements = elements || {};
-        this.managers = managers || {};
-        
-        // Ensure authManager exists to prevent the error
-        if (!this.managers.authManager) {
-            console.log("Adding mock AuthManager to SettingsManager");
-            this.managers.authManager = new AuthManager();
-        }
-        
-        this.isPro = false;
-        
-        // Get references to specific settings elements
-        this.elements.enableScheduleToggle = document.getElementById('enableSchedule');
-        this.elements.scheduleOptionsDiv = document.getElementById('scheduleOptions');
-        this.elements.scheduleFrequencySelect = document.getElementById('scheduleFrequency');
-        this.elements.weeklyOptionsDiv = document.getElementById('weeklyOptions');
-        this.elements.scheduleDayOfWeekSelect = document.getElementById('scheduleDayOfWeek');
-        this.elements.scheduleTimeSelect = document.getElementById('scheduleTime');
-        this.elements.enableEmailNotificationsToggle = document.getElementById('enableEmailNotifications');
-        this.elements.saveScheduleButton = document.getElementById('saveSchedule');
-        this.elements.scheduleUpgradePrompt = document.getElementById('scheduleUpgradePrompt');
-    };
-    
-    // Copy prototype methods from the original SettingsManager if it exists
-    if (originalSettingsManager) {
-        window.SettingsManager.prototype = originalSettingsManager.prototype;
-    } else {
-        // Add mock methods
-        window.SettingsManager.prototype.initialize = function() {
-            console.log("Mock SettingsManager: initialize called");
-            return Promise.resolve();
-        };
-        window.SettingsManager.prototype.applyFeatureGating = function() {
-            console.log("Mock SettingsManager: applyFeatureGating called");
-            return Promise.resolve();
-        };
-        window.SettingsManager.prototype.loadSettings = function() {
-            console.log("Mock SettingsManager: loadSettings called");
-            return Promise.resolve();
-        };
-        window.SettingsManager.prototype.loadCustomRules = function() {
-            console.log("Mock SettingsManager: loadCustomRules called");
-            return Promise.resolve();
-        };
-    }
-    
-    if (typeof BulkActionsManager === 'undefined') {
-        console.log("Creating mock BulkActionsManager class");
-        window.BulkActionsManager = class BulkActionsManager {
-            constructor(elements, managers) {
-                console.log("Mock BulkActionsManager created");
-                this.elements = elements || {};
-                this.managers = managers || {};
-                
-                // Ensure required managers exist to prevent errors
-                if (!this.managers.authManager) {
-                    this.managers.authManager = new AuthManager();
-                }
-                if (!this.managers.feedManager) {
-                    this.managers.feedManager = new FeedManager();
-                }
-            }
-            initialize() { return Promise.resolve(); }
-            applyFeatureGating() { return Promise.resolve(); }
-            loadTemplates() { return Promise.resolve(); }
-        };
+    // Check if application is initialized
+    if (!window.isConfigInitialized) {
+        console.warn("Application not initialized by the time popup.js loaded. This may indicate a script loading issue.");
     }
     
     // Now that we've ensured all required classes exist (even as mocks),
@@ -1186,8 +563,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
         // First, try to load the full dashboard UI
-        new PopupManager();
+        const popupManager = new PopupManager();
         console.log("PopupManager instantiated successfully");
+        
+        // Store FeedManager instance globally for backup access
+        if (popupManager.feedManager) {
+            window.feedManagerInstance = popupManager.feedManager;
+            console.log('[DEBUG] FeedManager instance stored globally');
+        }
+        
+        // Store ValidationUIManager instance globally for backup access
+        if (popupManager.validationUIManager) {
+            window.validationUIManagerInstance = popupManager.validationUIManager;
+            console.log('[DEBUG] ValidationUIManager instance stored globally');
+        }
     } catch (error) {
         console.error("Error instantiating PopupManager:", error);
         

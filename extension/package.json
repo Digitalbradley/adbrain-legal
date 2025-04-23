@@ -1,12 +1,19 @@
 {
   "name": "adbrain-feed-manager",
   "version": "1.0.0",
-  "description": "AdBrain Feed Manager Extension",
+  "description": "AdBrain Feed Manager Chrome Extension",
+  "main": "index.js",
   "scripts": {
-    "start": "http-server . -p 8080 -c-1 --cors",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "devDependencies": {
-    "http-server": "^14.1.1"
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "@testing-library/dom": "^9.3.3",
+    "@testing-library/jest-dom": "^6.1.4",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
   }
-} 
+}

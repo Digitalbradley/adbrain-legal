@@ -1,0 +1,4 @@
+# Create backup files with timestamp
+cp extension/src/popup/popup.js extension/src/popup/popup.js.backup-$(date +%Y%m%d)
+cp extension/src/popup/popup.css extension/src/popup/popup.css.backup-$(date +%Y%m%d)
+cp extension/src/popup/popup.html extension/src/popup/popup.html.backup-$(date +%Y%m%d) 
