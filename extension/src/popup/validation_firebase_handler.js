@@ -494,5 +494,8 @@ class ValidationFirebaseHandler {
     }
 }
 
-// Make globally available (consider modules later)
+// Make globally available for backward compatibility
+window.ValidationFirebaseHandler = ValidationFirebaseHandler;
+
+// Make globally available for backward compatibility
 window.ValidationFirebaseHandler = ValidationFirebaseHandler;

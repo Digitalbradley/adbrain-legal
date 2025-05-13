@@ -14,11 +14,11 @@ The AdBrain Feed Manager Chrome extension is designed to help users validate the
 
 ## Current State of the Validate Feed Functionality
 
-The Validate Feed button functionality is currently not working correctly. When clicked, it should trigger validation of the feed data and display the results in a floating panel, but this is not happening consistently.
+The Validate Feed button functionality is currently not working correctly. When clicked, it should trigger validation of the feed data and display the results in the validation history tab which you can see in the html.
 
 ### Issues Identified
 
-1. **Panel Display Mechanism**: The validation process is being triggered correctly, but the results are not being displayed to the user in a floating panel.
+1. **Panel Display Mechanism**: The validation process is being triggered correctly, but the results are not being displayed to the user the history tab.
 2. **ValidationPanelManager Initialization**: The `ValidationPanelManager` class may not be properly initialized or available when needed.
 3. **Fallback Mechanism**: The system falls back to the `createDirectValidationPanel` method in `ValidationUIManager`, but this fallback may not be working correctly.
 4. **Direct Validation Module**: A standalone implementation exists in `direct_validation.js` that should work independently, but it has some issues.
@@ -40,7 +40,7 @@ The `direct_validation.js` file provides a standalone implementation of validati
 
 ### Issues in Direct Validation Module
 
-1. **Missing Floating Panel**: The `displayValidationResults()` function doesn't create a floating panel as expected. It only updates the validation history table and switches to the validation tab.
+1. **Missing Results in Hisotry tab**: The `displayValidationResults()` function doesn't add the feed errors results into the history tab.
 2. **Tab Navigation**: There are issues with finding and switching to the validation tab.
 3. **Loading Indicator**: The `showLoading()` and `hideLoading()` functions may not be properly implemented.
 

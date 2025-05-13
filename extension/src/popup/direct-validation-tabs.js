@@ -18,7 +18,27 @@
         
         if (validationTabButton) {
             console.log('[DIRECT] Clicking validation tab button');
-            validationTabButton.click();
+            
+            // Try using the click() method first
+            try {
+                validationTabButton.click();
+                console.log('[DIRECT] Click method called on validation tab button');
+            } catch (error) {
+                console.error('[DIRECT] Error clicking validation tab button:', error);
+            }
+            
+            // As a backup, try to dispatch a click event
+            try {
+                console.log('[DIRECT] Dispatching click event on validation tab button');
+                const clickEvent = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+                validationTabButton.dispatchEvent(clickEvent);
+            } catch (error) {
+                console.error('[DIRECT] Error dispatching click event:', error);
+            }
             
             // Double-check if the tab is visible after a short delay
             setTimeout(() => {
@@ -32,12 +52,32 @@
                         console.log('[DIRECT] Forcing validation panel to be visible');
                         
                         // Deactivate all tabs first
-                        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
-                        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                        document.querySelectorAll('.tab-panel').forEach(panel => {
+                            console.log('[DIRECT] Removing active class from panel:', panel.id);
+                            panel.classList.remove('active');
+                        });
+                        
+                        document.querySelectorAll('.tab-button').forEach(btn => {
+                            console.log('[DIRECT] Removing active class from button:', btn.textContent.trim());
+                            btn.classList.remove('active');
+                        });
                         
                         // Activate validation tab
+                        console.log('[DIRECT] Adding active class to validation panel');
                         validationPanel.classList.add('active');
+                        
+                        console.log('[DIRECT] Adding active class to validation tab button');
                         validationTabButton.classList.add('active');
+                        
+                        // Force display style as a backup
+                        validationPanel.style.display = 'block';
+                        
+                        // Check if it worked
+                        setTimeout(() => {
+                            console.log('[DIRECT] After forcing: Validation panel is visible:',
+                                validationPanel.classList.contains('active'),
+                                'Display style:', validationPanel.style.display);
+                        }, 50);
                     }
                 }
             }, 100);

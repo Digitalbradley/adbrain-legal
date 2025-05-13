@@ -9,7 +9,19 @@
  * Initializes a mock Firebase implementation in the window object
  * with enhanced support for validation history operations.
  */
-function initializeFirebaseMock() {
+function initializeFirebaseMock(options = {}) {
+    // Default options
+    const defaultOptions = {
+        simulateFirestoreError: false,
+        simulateAuthError: false,
+        simulateNetworkError: false,
+        simulateEmptyResults: false
+    };
+    
+    // Merge provided options with defaults
+    const mockOptions = { ...defaultOptions, ...options };
+    
+    console.log("Initializing Firebase Mock with options:", mockOptions);
     console.log("Initializing Firebase Mock...");
     
     // Create mock Firebase object
@@ -19,19 +31,33 @@ function initializeFirebaseMock() {
             return {};
         },
         
-        // Auth methods
-        auth: () => ({
-            currentUser: { uid: 'mock-user-id', email: 'mock@example.com' },
-            onAuthStateChanged: (callback) => {
-                callback({ uid: 'mock-user-id', email: 'mock@example.com' });
-                return () => {}; // Unsubscribe function
-            },
-            signInWithPopup: () => Promise.resolve({ user: { uid: 'mock-user-id', email: 'mock@example.com' } }),
-            signOut: () => Promise.resolve()
-        }),
+        // Auth methods with error simulation
+        auth: () => {
+            if (mockOptions.simulateAuthError) {
+                return {
+                    currentUser: null,
+                    onAuthStateChanged: (callback) => {
+                        callback(null);
+                        return () => {}; // Unsubscribe function
+                    },
+                    signInWithPopup: () => Promise.reject(new Error("Firebase Auth Error: Authentication failed")),
+                    signOut: () => Promise.resolve()
+                };
+            }
+            
+            return {
+                currentUser: { uid: 'mock-user-id', email: 'mock@example.com' },
+                onAuthStateChanged: (callback) => {
+                    callback({ uid: 'mock-user-id', email: 'mock@example.com' });
+                    return () => {}; // Unsubscribe function
+                },
+                signInWithPopup: () => Promise.resolve({ user: { uid: 'mock-user-id', email: 'mock@example.com' } }),
+                signOut: () => Promise.resolve()
+            };
+        },
         
-        // Firestore implementation
-        firestore: createMockFirestore
+        // Firestore implementation with error simulation
+        firestore: () => createMockFirestore(mockOptions)
     };
     
     // Add Firestore static methods to the firebase object
@@ -51,7 +77,7 @@ function initializeFirebaseMock() {
  * Creates a mock Firestore implementation with enhanced validation history support
  * @returns {Object} Mock Firestore object
  */
-function createMockFirestore() {
+function createMockFirestore(options) {
     // Enhanced mock data with more validation history entries
     const mockData = {
         users: {
@@ -219,6 +245,25 @@ function createMockFirestore() {
 
                                     // --- Execution Method ---
                                     get: async function() {
+                                        if (options.simulateNetworkError) {
+                                            console.error("Mock Firestore: Simulating network error");
+                                            return Promise.reject(new Error("Network error: Unable to connect to Firestore"));
+                                        }
+                                        
+                                        if (options.simulateFirestoreError) {
+                                            console.error("Mock Firestore: Simulating Firestore error");
+                                            return Promise.reject(new Error("Firestore error: Permission denied"));
+                                        }
+                                        
+                                        if (options.simulateEmptyResults) {
+                                            console.log("Mock Firestore: Simulating empty results");
+                                            return {
+                                                empty: true,
+                                                size: 0,
+                                                docs: [],
+                                                forEach: () => {}
+                                            };
+                                        }
                                         console.log("Mock Firestore Query: Executing get()");
                                         
                                         try {
@@ -485,3 +530,25 @@ function createMockFirestore() {
 
 // Make function available globally
 window.initializeFirebaseMock = initializeFirebaseMock;
+
+// Add helper functions to simulate different error conditions
+window.simulateFirestoreError = function() {
+    initializeFirebaseMock({ simulateFirestoreError: true });
+};
+
+window.simulateFirebaseAuthError = function() {
+    initializeFirebaseMock({ simulateAuthError: true });
+};
+
+window.simulateFirebaseNetworkError = function() {
+    initializeFirebaseMock({ simulateNetworkError: true });
+};
+
+window.simulateEmptyFirestoreResults = function() {
+    initializeFirebaseMock({ simulateEmptyResults: true });
+};
+
+// Reset to normal behavior
+window.resetFirebaseMock = function() {
+    initializeFirebaseMock();
+};

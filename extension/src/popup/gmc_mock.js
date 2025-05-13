@@ -9,7 +9,19 @@
  * Initializes mock GMC implementations in the window object.
  * This includes GMCApi and GMCValidator classes.
  */
-function initializeGMCMock() {
+function initializeGMCMock(options = {}) {
+    // Default options
+    const defaultOptions = {
+        simulateAuthError: false,
+        simulateValidationError: false,
+        simulateNetworkError: false,
+        simulateEmptyFeed: false
+    };
+    
+    // Merge provided options with defaults
+    const mockOptions = { ...defaultOptions, ...options };
+    
+    console.log("Initializing GMC Mock with options:", mockOptions);
     console.log("Initializing GMC Mock...");
     
     // Create mock GMCApi class if it doesn't exist
@@ -21,18 +33,32 @@ function initializeGMCMock() {
              */
             constructor() {
                 console.log("Mock GMCApi created");
-                this.isAuthenticated = true;
+                this.isAuthenticated = !mockOptions.simulateAuthError;
                 this.testMode = true;
+                this.simulateValidationError = mockOptions.simulateValidationError;
+                this.simulateNetworkError = mockOptions.simulateNetworkError;
+                this.simulateEmptyFeed = mockOptions.simulateEmptyFeed;
             }
             
             /**
              * Simulates authentication with Google Merchant Center
              * @returns {Promise<Object>} A promise that resolves to a success object
              */
-            authenticate() { 
+            authenticate() {
                 try {
                     console.log("Mock GMCApi: authenticate called");
-                    return Promise.resolve({ success: true }); 
+                    
+                    if (this.simulateNetworkError) {
+                        console.error("Mock GMCApi: Simulating network error");
+                        return Promise.reject(new Error("Network error: Unable to connect to Google Merchant Center"));
+                    }
+                    
+                    if (!this.isAuthenticated) {
+                        console.error("Mock GMCApi: Simulating authentication error");
+                        return Promise.reject(new Error("Authentication error: Unable to authenticate with Google Merchant Center"));
+                    }
+                    
+                    return Promise.resolve({ success: true });
                 } catch (error) {
                     console.error("Mock GMCApi: authenticate error", error);
                     return Promise.reject(error);
@@ -54,8 +80,8 @@ function initializeGMCMock() {
              * Returns the current authentication state
              * @returns {Object} The authentication state
              */
-            getAuthState() { 
-                return { isAuthenticated: true }; 
+            getAuthState() {
+                return { isAuthenticated: this.isAuthenticated };
             }
             
             /**
@@ -66,6 +92,36 @@ function initializeGMCMock() {
             async validateFeed(feedData) {
                 try {
                     console.log('Mock GMCApi: validateFeed called with', feedData);
+                    
+                    // Simulate network error
+                    if (this.simulateNetworkError) {
+                        console.error("Mock GMCApi: Simulating network error during validation");
+                        throw new Error("Network error: Unable to connect to Google Merchant Center during validation");
+                    }
+                    
+                    // Simulate validation error
+                    if (this.simulateValidationError) {
+                        console.error("Mock GMCApi: Simulating validation error");
+                        throw new Error("Validation error: Unable to process feed data");
+                    }
+                    
+                    // Simulate empty feed
+                    if (this.simulateEmptyFeed || !feedData || feedData.length === 0) {
+                        console.warn("Mock GMCApi: Empty feed detected");
+                        return {
+                            isValid: false,
+                            totalProducts: 0,
+                            validProducts: 0,
+                            issues: [{
+                                rowIndex: 0,
+                                offerId: 'none',
+                                field: 'general',
+                                type: 'error',
+                                message: 'Empty feed: No products found in the feed.'
+                            }]
+                        };
+                    }
+                    
                     // Simulate a delay
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     
@@ -80,24 +136,28 @@ function initializeGMCMock() {
                         const offerId = item.id || `mock-id-${rowIndex}`;
                         
                         // Check title length (example validation)
-                        if (item.title && item.title.length < 30) {
+                        if (!item.title || item.title.length < 30) {
                             mockIssues.push({
                                 rowIndex: rowIndex,
                                 offerId: offerId,
                                 field: 'title',
-                                type: 'warning',
-                                message: `Title too short (${item.title.length} chars). Minimum 30 characters recommended.`
+                                type: item.title ? 'warning' : 'error',
+                                message: item.title ?
+                                    `Title too short (${item.title.length} chars). Minimum 30 characters recommended.` :
+                                    'Title is missing. This is a required field.'
                             });
                         }
                         
                         // Check description length (example validation)
-                        if (item.description && item.description.length < 90) {
+                        if (!item.description || item.description.length < 90) {
                             mockIssues.push({
                                 rowIndex: rowIndex,
                                 offerId: offerId,
                                 field: 'description',
-                                type: 'warning',
-                                message: `Description too short (${item.description.length} chars). Minimum 90 characters recommended.`
+                                type: item.description ? 'warning' : 'error',
+                                message: item.description ?
+                                    `Description too short (${item.description.length} chars). Minimum 90 characters recommended.` :
+                                    'Description is missing. This is a required field.'
                             });
                         }
                     });
@@ -105,7 +165,7 @@ function initializeGMCMock() {
                     return {
                         isValid: mockIssues.length === 0,
                         totalProducts: totalCount,
-                        validProducts: validCount - mockIssues.length,
+                        validProducts: validCount - mockIssues.filter(issue => issue.type === 'error').length,
                         issues: mockIssues
                     };
                 } catch (error) {
@@ -136,13 +196,21 @@ function initializeGMCMock() {
              */
             async validate(feedData) {
                 console.log('[GMCValidator] Initiating API validation...');
+                
+                // Handle empty feed case
                 if (!feedData || feedData.length === 0) {
                     console.warn('[GMCValidator] No feed data provided for validation.');
                     return {
-                        isValid: true,
+                        isValid: false,
                         totalProducts: 0,
                         validProducts: 0,
-                        issues: []
+                        issues: [{
+                            rowIndex: 0,
+                            offerId: 'none',
+                            field: 'general',
+                            type: 'error',
+                            message: 'Empty feed: No products found in the feed.'
+                        }]
                     };
                 }
 
@@ -163,3 +231,25 @@ function initializeGMCMock() {
 
 // Make function available globally
 window.initializeGMCMock = initializeGMCMock;
+
+// Add helper functions to simulate different error conditions
+window.simulateGMCAuthError = function() {
+    initializeGMCMock({ simulateAuthError: true });
+};
+
+window.simulateGMCValidationError = function() {
+    initializeGMCMock({ simulateValidationError: true });
+};
+
+window.simulateGMCNetworkError = function() {
+    initializeGMCMock({ simulateNetworkError: true });
+};
+
+window.simulateEmptyFeed = function() {
+    initializeGMCMock({ simulateEmptyFeed: true });
+};
+
+// Reset to normal behavior
+window.resetGMCMock = function() {
+    initializeGMCMock();
+};

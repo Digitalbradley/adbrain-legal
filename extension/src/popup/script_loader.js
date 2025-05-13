@@ -41,21 +41,24 @@ const ScriptLoader = {
 
 // Define script groups
 const utilityLibraries = [
-    '../../lib/ui/loading.js',
-    '../../lib/ui/errors.js',
-    '../../lib/ui/tables.js',
-    'loading-indicator.js' // Add our new loading indicator module
+    // Removed non-existent files
+    // '../../lib/ui/loading.js',
+    // '../../lib/ui/errors.js',
+    // '../../lib/ui/tables.js',
+    'loading-indicator.js' // Only load our new loading indicator module
 ];
 
 const validationLibraries = [
-    '../../lib/gmc/validator.js',
-    '../../lib/validation/rules.js',
-    '../../lib/validation/analyzer.js',
-    '../../lib/validation/custom_rule_validator.js'
+    // Removed non-existent files
+    // '../../lib/gmc/validator.js',
+    // '../../lib/validation/rules.js',
+    // '../../lib/validation/analyzer.js',
+    // '../../lib/validation/custom_rule_validator.js'
 ];
 const utilityFiles = [
-    'popup_utils.js',
-    'debug.js'  // Add debug.js to the list of utility files
+    // 'popup_utils.js', // Now loaded via app.js
+    // 'debug.js',  // Now loaded via app.js
+    // 'content_type_validator.js' // Now loaded via app.js
 ];
 
 const configurationFiles = [
@@ -70,15 +73,20 @@ const mockImplementations = [
 ];
 
 const managerClasses = [
+    // 'status_manager.js', // Now loaded via app.js
     'status_bar_manager.js',
-    'search_manager.js',
-    'validation_firebase_handler.js',
-    'validation_panel_manager.js',
-    'validation_issue_manager.js',
-    'validation_ui_manager.js', // Load ValidationUIManager before FeedManager
-    'feed_manager.js',          // FeedManager depends on ValidationUIManager
-    'settings_manager.js',
-    'bulk_actions_manager.js'
+    // 'feed_display_manager.js', // Now loaded via app.js
+    // 'search_manager.js', // Now loaded via app.js
+    // Validation modules are now loaded via validation_modules.js and app.js
+    // 'validation_firebase_handler.js', // Now loaded via validation_modules.js
+    // 'validation_panel_manager.js', // Now loaded via validation_modules.js
+    // 'validation_issue_manager.js', // Now loaded via validation_modules.js
+    // 'content_type_validator.js', // Now loaded via app.js
+    // 'validation_ui_manager.js', // Now loaded via validation_modules.js
+    // Manager modules are now loaded via manager_modules.js and app.js
+    // 'feed_coordinator.js', // Now loaded via manager_modules.js
+    // 'settings_manager.js', // Now loaded via manager_modules.js
+    // 'bulk_actions_manager.js' // Now loaded via manager_modules.js
 ];
 
 const extractedFunctionality = [
@@ -95,6 +103,14 @@ const mainScripts = [
 console.log('[DEBUG] Setting up DOMContentLoaded event listener');
 document.addEventListener('DOMContentLoaded', function() {
     console.log('[DEBUG] DOMContentLoaded event fired');
+    
+    // Check if AppModules is available (indicating app.js has loaded)
+    if (window.AppModules) {
+        console.log('[DEBUG] AppModules detected from app.js:', Object.keys(window.AppModules));
+    } else {
+        console.warn('[DEBUG] AppModules not detected. ES Module system may not be working properly.');
+    }
+    
     console.log('[DEBUG] Starting script loading sequence...');
     
     // Create a loading indicator using our module
@@ -115,8 +131,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return ScriptLoader.loadScriptsSequentially(validationLibraries);
         })
         .then(() => {
-            updateLoadingStatus('Loading utility files...');
-            return ScriptLoader.loadScriptsSequentially(utilityFiles);
+            // Only load utility files if there are any to load
+            if (utilityFiles.length > 0) {
+                updateLoadingStatus('Loading utility files...');
+                return ScriptLoader.loadScriptsSequentially(utilityFiles);
+            }
+            console.log('[DEBUG] Skipping utility files (now loaded via ES modules)');
+            return Promise.resolve();
         })
         .then(() => {
             updateLoadingStatus('Loading configuration...');
@@ -127,8 +148,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return ScriptLoader.loadScriptsSequentially(mockImplementations);
         })
         .then(() => {
-            updateLoadingStatus('Loading manager classes...');
-            return ScriptLoader.loadScriptsSequentially(managerClasses);
+            // Only load manager classes if there are any to load
+            if (managerClasses.length > 0) {
+                updateLoadingStatus('Loading manager classes...');
+                return ScriptLoader.loadScriptsSequentially(managerClasses);
+            }
+            console.log('[DEBUG] Skipping manager classes (now loaded via ES modules)');
+            return Promise.resolve();
         })
         .then(() => {
             updateLoadingStatus('Loading extracted functionality...');

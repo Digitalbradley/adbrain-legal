@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ES Module Phase 5.3 Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            padding: 8px 15px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background-color: #3367d6;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .success {
+            color: green;
+        }
+        .failure {
+            color: red;
+        }
+        .log-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>ES Module Phase 5.3 Test</h1>
+    
+    <div class="test-section">
+        <h2>Module Availability Test</h2>
+        <button id="testModulesBtn" class="test-button">Test All Modules</button>
+        <div id="modulesResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Initialization Test</h2>
+        <button id="testInitBtn" class="test-button">Test Initialization</button>
+        <div id="initResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Critical Functionality Tests</h2>
+        <button id="testPopupManagerBtn" class="test-button">Test PopupManager</button>
+        <button id="testFeedCoordinatorBtn" class="test-button">Test FeedCoordinator</button>
+        <button id="testValidationUIManagerBtn" class="test-button">Test ValidationUIManager</button>
+        <div id="functionalityResult" class="result"></div>
+    </div>
+    
+    <div class="log-container">
+        <h3>Console Log</h3>
+        <div id="logOutput"></div>
+    </div>
+    
+    <!-- DOM elements required by PopupManager -->
+    <div style="display: block; opacity: 0.3;">
+        <!-- File Input and Preview elements -->
+        <input type="file" id="fileInput" accept=".csv">
+        <button id="previewFeed">Preview Feed</button>
+        <div id="previewContent"></div>
+        <button id="exportFeed">Export Feed</button>
+        
+        <!-- Authentication elements -->
+        <button id="testGMCAuth">Connect Google Merchant Center</button>
+        <button id="validateGMC">Validate Feed</button>
+        <button id="logoutButton">Logout</button>
+        
+        <!-- Analysis dropdown -->
+        <select id="analysisDropdown">
+            <option value="">Select Analysis</option>
+            <option value="title">Title Analysis</option>
+            <option value="description">Description Analysis</option>
+        </select>
+        
+        <!-- Search elements -->
+        <input type="text" id="searchInput" placeholder="Search...">
+        <select id="searchColumn">
+            <option value="all">All Columns</option>
+            <option value="title">Title</option>
+            <option value="description">Description</option>
+        </select>
+        <select id="searchType">
+            <option value="contains">Contains</option>
+            <option value="equals">Equals</option>
+        </select>
+        <button id="clearSearchBtn">Clear</button>
+        <div class="search-status"></div>
+        
+        <!-- Validation elements -->
+        <div id="validation-tab"></div>
+        <table>
+            <tbody id="validationHistory"></tbody>
+        </table>
+        <button id="refreshHistoryBtn">Refresh History</button>
+        <select id="historySort">
+            <option value="date">Sort by Date</option>
+            <option value="status">Sort by Status</option>
+        </select>
+    </div>
+    
+    <!-- ES Module Entry Point -->
+    <script type="module">
+        import AppModules from './app.js';
+        
+        // Redirect console.log to also display in the log container
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const logOutput = document.getElementById('logOutput');
+        
+        console.log = function() {
+            const args = Array.from(arguments);
+            originalConsoleLog.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.textContent = args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                    try {
+                        // Use a replacer function to handle circular references
+                        const getCircularReplacer = () => {
+                            const seen = new WeakSet();
+                            return (key, value) => {
+                                if (typeof value === 'object' && value !== null) {
+                                    if (seen.has(value)) {
+                                        return '[Circular Reference]';
+                                    }
+                                    seen.add(value);
+                                }
+                                return value;
+                            };
+                        };
+                        return JSON.stringify(arg, getCircularReplacer());
+                    } catch (error) {
+                        return `[Object with circular reference: ${Object.keys(arg).join(', ')}]`;
+                    }
+                }
+                return arg;
+            }).join(' ');
+            logOutput.appendChild(logEntry);
+        };
+        
+        console.error = function() {
+            const args = Array.from(arguments);
+            originalConsoleError.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = 'red';
+            logEntry.textContent = 'ERROR: ' + args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                    try {
+                        // Use a replacer function to handle circular references
+                        const getCircularReplacer = () => {
+                            const seen = new WeakSet();
+                            return (key, value) => {
+                                if (typeof value === 'object' && value !== null) {
+                                    if (seen.has(value)) {
+                                        return '[Circular Reference]';
+                                    }
+                                    seen.add(value);
+                                }
+                                return value;
+                            };
+                        };
+                        return JSON.stringify(arg, getCircularReplacer());
+                    } catch (error) {
+                        return `[Object with circular reference: ${Object.keys(arg).join(', ')}]`;
+                    }
+                }
+                return arg;
+            }).join(' ');
+            logOutput.appendChild(logEntry);
+        };
+        
+        // Test Modules Availability
+        document.getElementById('testModulesBtn').addEventListener('click', () => {
+            const modulesResult = document.getElementById('modulesResult');
+            let html = '<h3>Module Availability Test Results:</h3>';
+            
+            try {
+                // Check AppModules
+                if (window.AppModules) {
+                    html += '<p class="success">AppModules is available globally</p>';
+                    html += '<p>Available modules: ' + Object.keys(window.AppModules).join(', ') + '</p>';
+                } else {
+                    html += '<p class="failure">AppModules is NOT available globally</p>';
+                }
+                
+                // Check specific modules
+                const modulesToCheck = [
+                    'debug', 'StatusManager', 'debounce', 'FeedDisplayManager', 
+                    'ContentTypeValidator', 'SearchManager', 'ValidationFirebaseHandler',
+                    'ValidationIssueManager', 'ValidationPanelManager', 'ValidationUIManager',
+                    'FeedCoordinator', 'SettingsManager', 'BulkActionsManager'
+                ];
+                
+                html += '<h4>Individual Module Checks:</h4><ul>';
+                modulesToCheck.forEach(moduleName => {
+                    if (window.AppModules && typeof window.AppModules[moduleName] !== 'undefined') {
+                        html += `<li class="success">${moduleName}: Available (${typeof window.AppModules[moduleName]})</li>`;
+                    } else {
+                        html += `<li class="failure">${moduleName}: NOT Available</li>`;
+                    }
+                });
+                html += '</ul>';
+                
+                // Check module groups
+                const moduleGroups = [
+                    'utilityModules', 'validationLibraries', 'mockModules', 
+                    'remainingModules', 'directValidationModules'
+                ];
+                
+                html += '<h4>Module Group Checks:</h4><ul>';
+                moduleGroups.forEach(groupName => {
+                    if (window.AppModules && typeof window.AppModules[groupName] !== 'undefined') {
+                        html += `<li class="success">${groupName}: Available</li>`;
+                    } else {
+                        html += `<li class="failure">${groupName}: NOT Available</li>`;
+                    }
+                });
+                html += '</ul>';
+                
+                modulesResult.innerHTML = html;
+            } catch (error) {
+                modulesResult.innerHTML = `<p class="failure">Error testing modules: ${error.message}</p>`;
+                console.error('Error testing modules:', error);
+            }
+        });
+        
+        // Test Initialization
+        document.getElementById('testInitBtn').addEventListener('click', () => {
+            const initResult = document.getElementById('initResult');
+            let html = '<h3>Initialization Test Results:</h3>';
+            
+            try {
+                // Check if initialization flag is set
+                if (window.isConfigInitialized) {
+                    html += '<p class="success">Application is initialized (window.isConfigInitialized is true)</p>';
+                } else {
+                    html += '<p class="failure">Application is NOT initialized (window.isConfigInitialized is false or undefined)</p>';
+                }
+                
+                // Check for global instances
+                if (window.feedCoordinatorInstance) {
+                    html += '<p class="success">FeedCoordinator instance is available globally</p>';
+                } else {
+                    html += '<p class="failure">FeedCoordinator instance is NOT available globally</p>';
+                }
+                
+                if (window.validationUIManagerInstance) {
+                    html += '<p class="success">ValidationUIManager instance is available globally</p>';
+                } else {
+                    html += '<p class="failure">ValidationUIManager instance is NOT available globally</p>';
+                }
+                
+                // Check for backward compatibility
+                if (window.feedManagerInstance) {
+                    html += '<p class="success">FeedManager instance is available globally (backward compatibility)</p>';
+                } else {
+                    html += '<p class="failure">FeedManager instance is NOT available globally (backward compatibility issue)</p>';
+                }
+                
+                initResult.innerHTML = html;
+            } catch (error) {
+                initResult.innerHTML = `<p class="failure">Error testing initialization: ${error.message}</p>`;
+                console.error('Error testing initialization:', error);
+            }
+        });
+        
+        // Test PopupManager
+        document.getElementById('testPopupManagerBtn').addEventListener('click', () => {
+            const functionalityResult = document.getElementById('functionalityResult');
+            let html = '<h3>PopupManager Test Results:</h3>';
+            
+            try {
+                // Check if PopupManager is defined
+                if (typeof PopupManager === 'function') {
+                    html += '<p class="success">PopupManager class is defined</p>';
+                    
+                    // Check dependencies before instantiating
+                    html += '<h4>Dependency Checks:</h4><ul>';
+                    
+                    // Check for required global objects
+                    const dependencies = [
+                        { name: 'window.PopupMessageHandler', obj: window.PopupMessageHandler },
+                        { name: 'window.PopupEventHandlers', obj: window.PopupEventHandlers },
+                        { name: 'window.isConfigInitialized', obj: window.isConfigInitialized },
+                        { name: 'ValidationUIManager', obj: typeof ValidationUIManager !== 'undefined' },
+                        { name: 'FeedCoordinator', obj: typeof FeedCoordinator !== 'undefined' },
+                        { name: 'StatusBarManager', obj: typeof StatusBarManager !== 'undefined' },
+                        { name: 'SearchManager', obj: typeof SearchManager !== 'undefined' }
+                    ];
+                    
+                    dependencies.forEach(dep => {
+                        if (dep.obj) {
+                            html += `<li class="success">${dep.name}: Available</li>`;
+                        } else {
+                            html += `<li class="failure">${dep.name}: NOT Available</li>`;
+                        }
+                    });
+                    
+                    html += '</ul>';
+                    
+                    // Check DOM elements
+                    html += '<h4>DOM Element Checks:</h4><ul>';
+                    const elements = [
+                        'fileInput', 'previewFeed', 'previewContent', 'exportFeed',
+                        'testGMCAuth', 'validateGMC', 'logoutButton', 'analysisDropdown',
+                        'searchInput', 'searchColumn', 'searchType', 'clearSearchBtn',
+                        'validation-tab', 'validationHistory'
+                    ];
+                    
+                    elements.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            html += `<li class="success">${id}: Found</li>`;
+                        } else {
+                            html += `<li class="failure">${id}: NOT Found</li>`;
+                        }
+                    });
+                    
+                    html += '</ul>';
+                    
+                    // Check if we can instantiate it (this might fail due to DOM dependencies)
+                    try {
+                        console.log('Attempting to create PopupManager instance for testing...');
+                        
+                        // Log the state of key dependencies
+                        console.log('PopupMessageHandler available:', !!window.PopupMessageHandler);
+                        console.log('PopupEventHandlers available:', !!window.PopupEventHandlers);
+                        console.log('isConfigInitialized:', !!window.isConfigInitialized);
+                        
+                        const popupManager = new PopupManager();
+                        html += '<p class="success">PopupManager instance created successfully</p>';
+                    } catch (error) {
+                        html += `<p class="failure">Could not instantiate PopupManager: ${error.message}</p>`;
+                        html += '<p>This is expected in a test environment without the full DOM structure</p>';
+                        
+                        // Log detailed error information
+                        console.error('Detailed error when instantiating PopupManager:', {
+                            name: error.name,
+                            message: error.message,
+                            stack: error.stack,
+                            toString: error.toString()
+                        });
+                        
+                        // Try to identify the specific issue
+                        if (error.message.includes('PopupMessageHandler')) {
+                            html += '<p>Issue appears to be related to PopupMessageHandler</p>';
+                        } else if (error.message.includes('PopupEventHandlers')) {
+                            html += '<p>Issue appears to be related to PopupEventHandlers</p>';
+                        } else if (error.message.includes('DOM')) {
+                            html += '<p>Issue appears to be related to missing DOM elements</p>';
+                        }
+                    }
+                } else {
+                    html += '<p class="failure">PopupManager class is NOT defined</p>';
+                }
+                
+                functionalityResult.innerHTML = html;
+            } catch (error) {
+                functionalityResult.innerHTML = `<p class="failure">Error testing PopupManager: ${error.message}</p>`;
+                console.error('Error testing PopupManager:', error);
+                console.error('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack,
+                    toString: error.toString()
+                });
+            }
+        });
+        
+        // Test FeedCoordinator
+        document.getElementById('testFeedCoordinatorBtn').addEventListener('click', () => {
+            const functionalityResult = document.getElementById('functionalityResult');
+            let html = '<h3>FeedCoordinator Test Results:</h3>';
+            
+            try {
+                // Check if FeedCoordinator is available in AppModules
+                if (window.AppModules && typeof window.AppModules.FeedCoordinator === 'function') {
+                    html += '<p class="success">FeedCoordinator class is available in AppModules</p>';
+                } else {
+                    html += '<p class="failure">FeedCoordinator class is NOT available in AppModules</p>';
+                }
+                
+                // Check if FeedCoordinator is available globally
+                if (typeof FeedCoordinator === 'function') {
+                    html += '<p class="success">FeedCoordinator class is available globally</p>';
+                } else {
+                    html += '<p class="failure">FeedCoordinator class is NOT available globally</p>';
+                }
+                
+                // Check if we have a global instance
+                if (window.feedCoordinatorInstance) {
+                    html += '<p class="success">FeedCoordinator instance is available globally</p>';
+                    
+                    // Check if it has the expected methods
+                    const methods = ['handlePreview'];
+                    html += '<h4>Method Checks:</h4><ul>';
+                    methods.forEach(method => {
+                        if (typeof window.feedCoordinatorInstance[method] === 'function') {
+                            html += `<li class="success">${method}: Available</li>`;
+                        } else {
+                            html += `<li class="failure">${method}: NOT Available</li>`;
+                        }
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<p class="failure">FeedCoordinator instance is NOT available globally</p>';
+                }
+                
+                functionalityResult.innerHTML = html;
+            } catch (error) {
+                functionalityResult.innerHTML = `<p class="failure">Error testing FeedCoordinator: ${error.message}</p>`;
+                console.error('Error testing FeedCoordinator:', error);
+            }
+        });
+        
+        // Test ValidationUIManager
+        document.getElementById('testValidationUIManagerBtn').addEventListener('click', () => {
+            const functionalityResult = document.getElementById('functionalityResult');
+            let html = '<h3>ValidationUIManager Test Results:</h3>';
+            
+            try {
+                // Check if ValidationUIManager is available in AppModules
+                if (window.AppModules && typeof window.AppModules.ValidationUIManager === 'function') {
+                    html += '<p class="success">ValidationUIManager class is available in AppModules</p>';
+                } else {
+                    html += '<p class="failure">ValidationUIManager class is NOT available in AppModules</p>';
+                }
+                
+                // Check if ValidationUIManager is available globally
+                if (typeof ValidationUIManager === 'function') {
+                    html += '<p class="success">ValidationUIManager class is available globally</p>';
+                } else {
+                    html += '<p class="failure">ValidationUIManager class is NOT available globally</p>';
+                }
+                
+                // Check if we have a global instance
+                if (window.validationUIManagerInstance) {
+                    html += '<p class="success">ValidationUIManager instance is available globally</p>';
+                    
+                    // Check if it has the expected methods
+                    const methods = ['triggerGMCValidation', 'loadValidationHistoryFromFirestore'];
+                    html += '<h4>Method Checks:</h4><ul>';
+                    methods.forEach(method => {
+                        if (typeof window.validationUIManagerInstance[method] === 'function') {
+                            html += `<li class="success">${method}: Available</li>`;
+                        } else {
+                            html += `<li class="failure">${method}: NOT Available</li>`;
+                        }
+                    });
+                    html += '</ul>';
+                } else {
+                    html += '<p class="failure">ValidationUIManager instance is NOT available globally</p>';
+                }
+                
+                functionalityResult.innerHTML = html;
+            } catch (error) {
+                functionalityResult.innerHTML = `<p class="failure">Error testing ValidationUIManager: ${error.message}</p>`;
+                console.error('Error testing ValidationUIManager:', error);
+            }
+        });
+        
+        // Log that the test page has loaded
+        console.log('ES Module Phase 5.3 Test page loaded');
+        console.log('AppModules available:', window.AppModules ? Object.keys(window.AppModules) : 'NOT AVAILABLE');
+    </script>
+</body>
+</html>

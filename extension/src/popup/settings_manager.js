@@ -672,5 +672,9 @@ class SettingsManager {
 
 }
 
+// Export for ES modules
+export { SettingsManager };
+export default SettingsManager;
+
 // Make globally available if needed, or handle via modules/imports in popup.js
 window.SettingsManager = SettingsManager;

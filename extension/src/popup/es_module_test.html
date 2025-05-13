@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ES Module Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+        }
+        .status-area {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .status-message {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+        }
+        .status-warning {
+            border-left: 3px solid #ffc107;
+        }
+        .status-error {
+            border-left: 3px solid #dc3545;
+        }
+        .status-success {
+            border-left: 3px solid #28a745;
+        }
+        .test-button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background-color: #0069d9;
+        }
+        .console-output {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ES Module Test</h1>
+        <p>This page tests the ES module implementation for the AdBrain Feed Manager extension.</p>
+        
+        <div class="status-area">
+            <h3>Feed Status</h3>
+            <div id="feedStatusContent" class="feed-status-content">
+                <div class="status-message">No feed loaded. This is a test page.</div>
+            </div>
+        </div>
+        
+        <button id="testStatusManager" class="test-button">Test StatusManager</button>
+        <button id="testDebounce" class="test-button">Test Debounce</button>
+        <button id="testDebug" class="test-button">Test Debug</button>
+        
+        <div class="console-output" id="consoleOutput">
+            <div>Console output will appear here...</div>
+        </div>
+    </div>
+    
+    <!-- Load app.js as a module -->
+    <script type="module" src="app.js"></script>
+    
+    <!-- Test script -->
+    <script>
+        // Function to log to both console and the page
+        function log(message) {
+            console.log(message);
+            const consoleOutput = document.getElementById('consoleOutput');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = message;
+            consoleOutput.appendChild(logEntry);
+            
+            // Auto-scroll to bottom
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        // Log immediately
+        log('Test page loaded');
+        
+        // Check if AppModules is available immediately
+        if (window.AppModules) {
+            log('AppModules immediately available: ' + Object.keys(window.AppModules).join(', '));
+        } else {
+            log('AppModules not immediately available, will check again after a delay');
+        }
+        
+        // Wait a moment to ensure app.js has loaded
+        setTimeout(() => {
+            log('Checking for AppModules after delay...');
+            
+            // Check if AppModules is available after delay
+            if (window.AppModules) {
+                log('AppModules available after delay: ' + Object.keys(window.AppModules).join(', '));
+                
+                // Set up test buttons
+                setupTestButtons();
+            } else {
+                log('ERROR: AppModules not detected after delay. ES Module system is not working properly.');
+            }
+        }, 500);
+        
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            log('DOMContentLoaded event fired');
+            
+            // Check if AppModules is available after DOMContentLoaded
+            if (window.AppModules) {
+                log('AppModules detected after DOMContentLoaded: ' + Object.keys(window.AppModules).join(', '));
+            } else {
+                log('ERROR: AppModules not detected after DOMContentLoaded. ES Module system is not working properly.');
+            }
+        });
+        
+        function setupTestButtons() {
+            document.getElementById('testStatusManager').addEventListener('click', () => {
+                log('Testing StatusManager...');
+                
+                if (window.AppModules && window.AppModules.StatusManager) {
+                    try {
+                        const statusManager = new window.AppModules.StatusManager();
+                        statusManager.addInfo('This is an info message from ES module test');
+                        statusManager.addWarning('This is a warning message from ES module test');
+                        statusManager.addError('This is an error message from ES module test');
+                        statusManager.addSuccess('This is a success message from ES module test');
+                        log('StatusManager test completed successfully');
+                    } catch (error) {
+                        log('ERROR: StatusManager test failed: ' + error.message);
+                    }
+                } else {
+                    log('ERROR: StatusManager not available in AppModules');
+                }
+            });
+            
+            document.getElementById('testDebounce').addEventListener('click', () => {
+                log('Testing debounce...');
+                
+                if (window.AppModules && window.AppModules.debounce) {
+                    try {
+                        let counter = 0;
+                        const debouncedFunction = window.AppModules.debounce(() => {
+                            counter++;
+                            log('Debounced function called (count: ' + counter + ')');
+                        }, 500);
+                        
+                        log('Calling debounced function multiple times rapidly...');
+                        debouncedFunction();
+                        debouncedFunction();
+                        debouncedFunction();
+                        
+                        log('Debounce test initiated. Function should be called once after 500ms.');
+                    } catch (error) {
+                        log('ERROR: Debounce test failed: ' + error.message);
+                    }
+                } else {
+                    log('ERROR: debounce not available in AppModules');
+                }
+            });
+            
+            document.getElementById('testDebug').addEventListener('click', () => {
+                log('Testing debug module...');
+                
+                if (window.AppModules && window.AppModules.debug) {
+                    log('Debug module is available in AppModules');
+                    
+                    // Test debug.log function
+                    window.AppModules.debug.log('This is a test message from debug.log');
+                    log('debug.log test completed');
+                    
+                    // Test debug.checkElement function
+                    const feedStatusContent = window.AppModules.debug.checkElement('#feedStatusContent');
+                    log('debug.checkElement test completed: ' + (feedStatusContent ? 'Element found' : 'Element not found'));
+                    
+                    // Test debug.getEnvironmentInfo function
+                    const envInfo = window.AppModules.debug.getEnvironmentInfo();
+                    log('debug.getEnvironmentInfo test completed');
+                    
+                    // Test debug.testModule function
+                    window.AppModules.debug.testModule('StatusManager');
+                    log('debug.testModule test completed');
+                    
+                    log('All debug module tests completed successfully');
+                } else {
+                    log('ERROR: debug module not available in AppModules');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

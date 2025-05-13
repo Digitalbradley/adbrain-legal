@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DOM Manager Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #444;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left: 4px solid #f44336;
+        }
+        .log-output {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        /* Test elements */
+        #testElement1 {
+            display: none;
+        }
+        #testElement2 {
+            display: none;
+        }
+        .test-class {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>DOM Manager Test</h1>
+    
+    <!-- Test elements -->
+    <div id="testElement1">Test Element 1</div>
+    <div id="testElement2">Test Element 2</div>
+    <div class="test-class">Test Class Element 1</div>
+    <div class="test-class">Test Class Element 2</div>
+    
+    <!-- File input for testing -->
+    <input type="file" id="fileInput">
+    <button id="previewFeed">Preview Feed</button>
+    <div id="previewContent"></div>
+    <button id="exportFeed">Export Feed</button>
+    <button id="testGMCAuth">Verify GMC</button>
+    <button id="validateGMC">Validate GMC</button>
+    <button id="logoutButton">Logout</button>
+    <select id="analysisDropdown">
+        <option value="option1">Option 1</option>
+        <option value="option2">Option 2</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="Search...">
+    <select id="searchColumn">
+        <option value="all">All Columns</option>
+        <option value="title">Title</option>
+        <option value="description">Description</option>
+    </select>
+    <select id="searchType">
+        <option value="contains">Contains</option>
+        <option value="exact">Exact Match</option>
+    </select>
+    <button id="clearSearchBtn">Clear</button>
+    <div class="search-status">No search results</div>
+    
+    <!-- Validation tab elements -->
+    <div id="validation-tab" class="tab-panel">
+        <table>
+            <tbody id="validationHistory"></tbody>
+        </table>
+    </div>
+    
+    <!-- Status elements -->
+    <div id="feedStatusContent"></div>
+    
+    <!-- Tab elements -->
+    <div class="tab-buttons">
+        <button class="tab-button" data-tab="feed">Feed</button>
+        <button class="tab-button" data-tab="validation">Validation</button>
+        <button class="tab-button" data-tab="settings">Settings</button>
+    </div>
+    <div class="tab-panels">
+        <div class="tab-panel" id="feed-tab"></div>
+        <div class="tab-panel" id="validation-tab"></div>
+        <div class="tab-panel" id="settings-tab"></div>
+    </div>
+    
+    <!-- Test sections -->
+    <div class="test-section">
+        <h2>Initialization Test</h2>
+        <button id="testInitialization">Test Initialization</button>
+        <div id="initializationResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Get Element Test</h2>
+        <button id="testGetElement">Test getElement</button>
+        <div id="getElementResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Get Elements Test</h2>
+        <button id="testGetElements">Test getElements</button>
+        <div id="getElementsResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Check Required Elements Test</h2>
+        <button id="testCheckRequiredElements">Test checkRequiredElements</button>
+        <div id="checkRequiredElementsResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Create Element Test</h2>
+        <button id="testCreateElement">Test createElement</button>
+        <div id="createElementResult" class="result"></div>
+    </div>
+    
+    <div class="log-output" id="logOutput"></div>
+    
+    <!-- Import DOM Manager as ES module -->
+    <script type="module">
+        import DOMManager from './dom_manager.js';
+        
+        // Override console.log to display in the log output
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        
+        console.log = function() {
+            const args = Array.from(arguments);
+            originalConsoleLog.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.textContent = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : arg
+            ).join(' ');
+            document.getElementById('logOutput').appendChild(logEntry);
+        };
+        
+        console.error = function() {
+            const args = Array.from(arguments);
+            originalConsoleError.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = 'red';
+            logEntry.textContent = 'ERROR: ' + args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : arg
+            ).join(' ');
+            document.getElementById('logOutput').appendChild(logEntry);
+        };
+        
+        console.warn = function() {
+            const args = Array.from(arguments);
+            originalConsoleWarn.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = 'orange';
+            logEntry.textContent = 'WARNING: ' + args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg) : arg
+            ).join(' ');
+            document.getElementById('logOutput').appendChild(logEntry);
+        };
+        
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM Manager Test page loaded');
+            
+            // Test initialization
+            document.getElementById('testInitialization').addEventListener('click', () => {
+                console.log('Testing initialization...');
+                
+                try {
+                    const domManager = new DOMManager();
+                    const elements = domManager.getAllElements();
+                    
+                    const result = document.getElementById('initializationResult');
+                    result.textContent = `Initialization successful. Found ${Object.keys(elements).filter(key => !!elements[key]).length} elements.`;
+                    result.classList.remove('error');
+                    
+                    console.log('Initialization test passed');
+                } catch (error) {
+                    const result = document.getElementById('initializationResult');
+                    result.textContent = `Initialization failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('Initialization test failed:', error);
+                }
+            });
+            
+            // Test getElement
+            document.getElementById('testGetElement').addEventListener('click', () => {
+                console.log('Testing getElement...');
+                
+                try {
+                    const domManager = new DOMManager();
+                    
+                    // Test existing element
+                    const testElement1 = domManager.getElement('testElement1');
+                    
+                    // Test non-existing element
+                    const nonExistingElement = domManager.getElement('nonExistingElement');
+                    
+                    // Test required element that doesn't exist
+                    try {
+                        domManager.getElement('nonExistingRequiredElement', true);
+                    } catch (error) {
+                        console.error('Expected error for required element:', error);
+                    }
+                    
+                    const result = document.getElementById('getElementResult');
+                    result.textContent = `getElement test successful. Found testElement1: ${!!testElement1}, nonExistingElement: ${!!nonExistingElement}`;
+                    result.classList.remove('error');
+                    
+                    console.log('getElement test passed');
+                } catch (error) {
+                    const result = document.getElementById('getElementResult');
+                    result.textContent = `getElement test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('getElement test failed:', error);
+                }
+            });
+            
+            // Test getElements
+            document.getElementById('testGetElements').addEventListener('click', () => {
+                console.log('Testing getElements...');
+                
+                try {
+                    const domManager = new DOMManager();
+                    
+                    // Test existing elements
+                    const testClassElements = domManager.getElements('.test-class');
+                    
+                    // Test non-existing elements
+                    const nonExistingElements = domManager.getElements('.non-existing-class');
+                    
+                    const result = document.getElementById('getElementsResult');
+                    result.textContent = `getElements test successful. Found .test-class elements: ${testClassElements.length}, .non-existing-class elements: ${nonExistingElements.length}`;
+                    result.classList.remove('error');
+                    
+                    console.log('getElements test passed');
+                } catch (error) {
+                    const result = document.getElementById('getElementsResult');
+                    result.textContent = `getElements test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('getElements test failed:', error);
+                }
+            });
+            
+            // Test checkRequiredElements
+            document.getElementById('testCheckRequiredElements').addEventListener('click', () => {
+                console.log('Testing checkRequiredElements...');
+                
+                try {
+                    const domManager = new DOMManager();
+                    
+                    // Test with existing elements
+                    const existingElementsCheck = domManager.checkRequiredElements(['fileInput', 'previewButton', 'previewContentContainer']);
+                    
+                    // Test with non-existing elements
+                    const nonExistingElementsCheck = domManager.checkRequiredElements(['fileInput', 'nonExistingElement']);
+                    
+                    const result = document.getElementById('checkRequiredElementsResult');
+                    result.textContent = `checkRequiredElements test successful. Existing elements check: ${existingElementsCheck}, Non-existing elements check: ${nonExistingElementsCheck}`;
+                    result.classList.remove('error');
+                    
+                    console.log('checkRequiredElements test passed');
+                } catch (error) {
+                    const result = document.getElementById('checkRequiredElementsResult');
+                    result.textContent = `checkRequiredElements test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('checkRequiredElements test failed:', error);
+                }
+            });
+            
+            // Test createElement
+            document.getElementById('testCreateElement').addEventListener('click', () => {
+                console.log('Testing createElement...');
+                
+                try {
+                    const domManager = new DOMManager();
+                    
+                    // Create a simple element
+                    const simpleElement = domManager.createElement('div', { id: 'simpleElement', className: 'test-element' }, 'Simple Element');
+                    
+                    // Create an element with dataset attributes
+                    const datasetElement = domManager.createElement('div', { 
+                        id: 'datasetElement', 
+                        className: 'test-element',
+                        dataset: {
+                            testKey: 'testValue',
+                            anotherKey: 'anotherValue'
+                        }
+                    }, 'Dataset Element');
+                    
+                    const result = document.getElementById('createElementResult');
+                    result.innerHTML = '';
+                    result.appendChild(simpleElement);
+                    result.appendChild(datasetElement);
+                    result.classList.remove('error');
+                    
+                    console.log('createElement test passed');
+                } catch (error) {
+                    const result = document.getElementById('createElementResult');
+                    result.textContent = `createElement test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('createElement test failed:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

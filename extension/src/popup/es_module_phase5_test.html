@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ES Module Phase 5 Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            padding: 8px 15px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background-color: #3367d6;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .success {
+            color: green;
+        }
+        .failure {
+            color: red;
+        }
+        .log-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>ES Module Phase 5 Test</h1>
+    
+    <div class="test-section">
+        <h2>Module Group Files Test</h2>
+        <button id="testDirectValidationBtn" class="test-button">Test Direct Validation Modules</button>
+        <button id="testUtilityBtn" class="test-button">Test Utility Modules</button>
+        <button id="testValidationLibrariesBtn" class="test-button">Test Validation Libraries</button>
+        <button id="testMockBtn" class="test-button">Test Mock Modules</button>
+        <button id="testRemainingBtn" class="test-button">Test Remaining Modules</button>
+        <div id="moduleGroupResult" class="result">Click a button to test a module group</div>
+    </div>
+    
+    <div class="log-container">
+        <h3>Console Log</h3>
+        <div id="logOutput"></div>
+    </div>
+    
+    <!-- Import module groups -->
+    <script type="module">
+        // Function to log to both console and UI
+        function log(message) {
+            console.log(message);
+            const logOutput = document.getElementById('logOutput');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = message;
+            logOutput.appendChild(logEntry);
+        }
+
+        // Import module groups
+        try {
+            log('Importing direct_validation_modules.js...');
+            import('./direct_validation_modules.js')
+                .then(module => {
+                    log('✅ direct_validation_modules.js loaded successfully');
+                })
+                .catch(error => {
+                    log(`❌ Error loading direct_validation_modules.js: ${error.message}`);
+                });
+                
+            log('Importing utility_modules.js...');
+            import('./utility_modules.js')
+                .then(module => {
+                    log('✅ utility_modules.js loaded successfully');
+                })
+                .catch(error => {
+                    log(`❌ Error loading utility_modules.js: ${error.message}`);
+                });
+                
+            log('Importing validation_libraries.js...');
+            import('./validation_libraries.js')
+                .then(module => {
+                    log('✅ validation_libraries.js loaded successfully');
+                })
+                .catch(error => {
+                    log(`❌ Error loading validation_libraries.js: ${error.message}`);
+                });
+                
+            log('Importing mock_modules.js...');
+            import('./mock_modules.js')
+                .then(module => {
+                    log('✅ mock_modules.js loaded successfully');
+                })
+                .catch(error => {
+                    log(`❌ Error loading mock_modules.js: ${error.message}`);
+                });
+                
+            log('Importing remaining_modules.js...');
+            import('./remaining_modules.js')
+                .then(module => {
+                    log('✅ remaining_modules.js loaded successfully');
+                })
+                .catch(error => {
+                    log(`❌ Error loading remaining_modules.js: ${error.message}`);
+                });
+        } catch (error) {
+            log(`❌ Error during import: ${error.message}`);
+        }
+
+        // Set up test buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            // Test Direct Validation Modules
+            document.getElementById('testDirectValidationBtn').addEventListener('click', () => {
+                const result = document.getElementById('moduleGroupResult');
+                if (window.DirectValidationModules) {
+                    result.innerHTML = '<span class="success">✅ DirectValidationModules is available globally</span>';
+                    log('DirectValidationModules test: PASSED');
+                } else {
+                    result.innerHTML = '<span class="failure">❌ DirectValidationModules is not available globally</span>';
+                    log('DirectValidationModules test: FAILED');
+                }
+            });
+            
+            // Test Utility Modules
+            document.getElementById('testUtilityBtn').addEventListener('click', () => {
+                const result = document.getElementById('moduleGroupResult');
+                if (window.UtilityModules) {
+                    result.innerHTML = '<span class="success">✅ UtilityModules is available globally</span>';
+                    log('UtilityModules test: PASSED');
+                } else {
+                    result.innerHTML = '<span class="failure">❌ UtilityModules is not available globally</span>';
+                    log('UtilityModules test: FAILED');
+                }
+            });
+            
+            // Test Validation Libraries
+            document.getElementById('testValidationLibrariesBtn').addEventListener('click', () => {
+                const result = document.getElementById('moduleGroupResult');
+                if (window.ValidationLibraries) {
+                    result.innerHTML = '<span class="success">✅ ValidationLibraries is available globally</span>';
+                    log('ValidationLibraries test: PASSED');
+                } else {
+                    result.innerHTML = '<span class="failure">❌ ValidationLibraries is not available globally</span>';
+                    log('ValidationLibraries test: FAILED');
+                }
+            });
+            
+            // Test Mock Modules
+            document.getElementById('testMockBtn').addEventListener('click', () => {
+                const result = document.getElementById('moduleGroupResult');
+                if (window.MockModules) {
+                    result.innerHTML = '<span class="success">✅ MockModules is available globally</span>';
+                    log('MockModules test: PASSED');
+                } else {
+                    result.innerHTML = '<span class="failure">❌ MockModules is not available globally</span>';
+                    log('MockModules test: FAILED');
+                }
+            });
+            
+            // Test Remaining Modules
+            document.getElementById('testRemainingBtn').addEventListener('click', () => {
+                const result = document.getElementById('moduleGroupResult');
+                if (window.RemainingModules) {
+                    result.innerHTML = '<span class="success">✅ RemainingModules is available globally</span>';
+                    log('RemainingModules test: PASSED');
+                } else {
+                    result.innerHTML = '<span class="failure">❌ RemainingModules is not available globally</span>';
+                    log('RemainingModules test: FAILED');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

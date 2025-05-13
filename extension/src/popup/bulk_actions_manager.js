@@ -18,7 +18,19 @@ class BulkActionsManager {
         this.isPro = false; // Track pro status locally
 
         if (!this.managers.authManager) throw new Error("BulkActionsManager requires AuthManager.");
-        if (!this.managers.feedManager) throw new Error("BulkActionsManager requires FeedManager.");
+        
+        // Check for either feedManager or feedCoordinator
+        if (!this.managers.feedManager && !this.managers.feedCoordinator) {
+            throw new Error("BulkActionsManager requires FeedManager or FeedCoordinator.");
+        }
+        
+        // For backward compatibility, if feedCoordinator is provided but feedManager is not,
+        // assign feedCoordinator to feedManager
+        if (!this.managers.feedManager && this.managers.feedCoordinator) {
+            console.log('[DEBUG] BulkActionsManager: Using FeedCoordinator as FeedManager');
+            this.managers.feedManager = this.managers.feedCoordinator;
+        }
+        
         if (!this.managers.errorManager) console.warn("BulkActionsManager: ErrorManager not provided.");
         if (!this.managers.loadingManager) console.warn("BulkActionsManager: LoadingManager not provided.");
 
@@ -464,6 +476,10 @@ class BulkActionsManager {
     }
 
 }
+
+// Export for ES modules
+export { BulkActionsManager };
+export default BulkActionsManager;
 
 // Make globally available if needed
 window.BulkActionsManager = BulkActionsManager;

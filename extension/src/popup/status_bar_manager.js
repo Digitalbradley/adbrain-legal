@@ -200,5 +200,7 @@ class StatusBarManager {
      }
 }
 
-// Make globally available (consider modules later)
+// Make globally available for backward compatibility
 window.StatusBarManager = StatusBarManager;
+
+// No default export needed for regular scripts

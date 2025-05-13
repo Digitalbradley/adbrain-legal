@@ -1,6 +1,9 @@
 /**
  * Manages the search and filtering functionality for the feed preview table.
  */
+// Use global debounce function
+// No need to import it since it's already available globally
+
 class SearchManager {
     /**
      * @param {object} elements - Object containing references to DOM elements.
@@ -27,7 +30,7 @@ class SearchManager {
     initialize() {
         console.log('Initializing SearchManager...');
         // Add listeners with debounce for performance
-        this.elements.searchInput.addEventListener('input', this.debounce(() => {
+        this.elements.searchInput.addEventListener('input', window.debounce(() => {
             this.handleSearch();
         }, 300));
 
@@ -50,13 +53,6 @@ class SearchManager {
         
         // Initial column update might be needed if table exists on load
         this.updateSearchColumns();
-    }
-
-    debounce(func, wait) {
-        return (...args) => {
-            clearTimeout(this.debounceTimeout);
-            this.debounceTimeout = setTimeout(() => func.apply(this, args), wait);
-        };
     }
 
     /**
@@ -262,5 +258,7 @@ class SearchManager {
 
 }
 
-// Make globally available (consider modules later)
+// Make globally available for backward compatibility
 window.SearchManager = SearchManager;
+
+// No default export needed for regular scripts

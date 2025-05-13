@@ -43,6 +43,8 @@ function updateCharCount(element, maxLength) {
     }
 }
 
-// Make functions available globally
+// For backward compatibility, also make functions available globally
 window.debounce = debounce;
 window.updateCharCount = updateCharCount;
+
+// No default export needed for regular scripts

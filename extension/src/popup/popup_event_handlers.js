@@ -1,286 +1,418 @@
-// src/popup/popup_event_handlers.js
-// Contains extracted event handlers from popup.js
-
 /**
- * Handles dropdown change events
- * @param {Event} e - The dropdown change event
+ * popup_event_handlers.js
+ * 
+ * This module contains event handlers for the popup UI.
+ * It provides a standardized way to handle UI events and interact with the background script.
  */
-function handleDropdownChange(e) {
-    const selectedValue = e.target.value;
-    if (selectedValue === 'analyze-feed') {
-        // analyzeFeed method was removed
-        console.warn("Analyze Feed dropdown option selected, but analyzeFeed method is removed.");
-    }
-}
 
-/**
- * Triggers GMC validation through the ValidationUIManager
- * @param {Object} managers - The managers object containing validationUIManager
- * @param {Object} errorManager - The error manager for showing errors
- * @returns {Promise<void>}
- */
-async function triggerGMCValidation(managers, errorManager) {
-    console.log('[DEBUG] PopupEventHandlers.triggerGMCValidation called');
-    console.log('[DEBUG] managers:', managers);
-    console.log('[DEBUG] errorManager:', errorManager);
-    
-    // ValidationUIManager now orchestrates this
-    if (managers.validationUIManager) {
-        console.log('[DEBUG] managers.validationUIManager exists:', managers.validationUIManager);
+// Create a PopupEventHandlers object to handle UI events
+const PopupEventHandlers = {
+    /**
+     * Handles the change event for the analysis dropdown.
+     * 
+     * @param {Event} e - The change event
+     */
+    handleDropdownChange: function(e) {
+        console.log('[DEBUG] Analysis dropdown changed:', e.target.value);
         
-        try {
-            // Pass current auth state if needed by VUIManager for custom rules check
-            // VUIManager constructor receives managers object which includes authManager
-            console.log('[DEBUG] Calling managers.validationUIManager.triggerGMCValidation()');
-            await managers.validationUIManager.triggerGMCValidation();
-            console.log('[DEBUG] managers.validationUIManager.triggerGMCValidation() completed successfully');
-        } catch (error) {
-            console.error('[DEBUG] Error in validationUIManager.triggerGMCValidation():', error);
-            errorManager.showError(`Validation failed: ${error.message}`);
-        }
-    } else {
-        console.error("[DEBUG] ValidationUIManager not initialized.");
-        errorManager.showError("Validation UI is not ready.");
-    }
-}
-
-/**
- * Verifies or authenticates with Google Merchant Center
- * @param {Function} sendMessageToBackground - Function to send messages to background
- * @param {Object} loadingManager - The loading manager
- * @param {Object} errorManager - The error manager
- * @param {Object} statusBarManager - The status bar manager
- * @param {Object} currentAuthState - Reference to the current auth state
- * @returns {Promise<void>}
- */
-async function verifyOrAuthenticateGMC(sendMessageToBackground, loadingManager, errorManager, statusBarManager, currentAuthState) {
-    loadingManager.showLoading('Checking GMC Connection...');
-    try {
-        const response = await sendMessageToBackground({ action: 'authenticateGmc' });
-
-        if (response?.success) {
-            const message = `Successfully connected to GMC (Merchant ID: ${response.merchantId})`;
-            errorManager.showSuccess(message, 3000);
-            // Refresh local state and update UI
-            const stateResponse = await sendMessageToBackground({ action: 'getAuthState' });
-            if (stateResponse?.success && stateResponse.state) {
-                Object.assign(currentAuthState, stateResponse.state);
-                statusBarManager?.updateAuthState(currentAuthState);
-                statusBarManager?.updateUI();
-            } else {
-                console.warn("Failed to refresh auth state after GMC auth.");
-                errorManager.showError("Connected, but failed to refresh status.");
-            }
-        } else {
-            throw new Error(response?.error?.message || 'GMC Authentication failed.');
-        }
-    } catch (error) {
-        let errorMessage = 'Could not connect to GMC.';
-        if (error.message && error.message.includes('No merchant account found')) {
-            errorMessage = 'Connection failed: No Google Merchant Center account found or accessible.';
-        } else if (error.message) {
-            errorMessage = `Connection failed: ${error.message}`;
-        }
-        errorManager.showError(errorMessage);
-        statusBarManager?.updateUI(true);
-    } finally {
-        loadingManager.hideLoading();
-    }
-}
-
-/**
- * Handles logout from both GMC and Firebase
- * @param {Function} sendMessageToBackground - Function to send messages to background
- * @param {Object} loadingManager - The loading manager
- * @param {Object} errorManager - The error manager
- * @param {Object} statusBarManager - The status bar manager
- * @param {Object} currentAuthState - Reference to the current auth state
- * @returns {Promise<void>}
- */
-async function handleLogout(sendMessageToBackground, loadingManager, errorManager, statusBarManager, currentAuthState) {
-    console.log('Logout button clicked');
-    loadingManager.showLoading('Logging out...');
-    try {
-        // Send messages for both GMC and Firebase logout
-        const results = await Promise.allSettled([
-            sendMessageToBackground({ action: 'logoutGmc' }),
-            sendMessageToBackground({ action: 'signOutFirebase' })
-        ]);
-
-        let gmcLogoutSuccess = results[0].status === 'fulfilled' && results[0].value?.success;
-        let firebaseLogoutSuccess = results[1].status === 'fulfilled' && results[1].value?.success;
-
-        // Log detailed results
-        console.log("Logout results:", results);
-
-        if (gmcLogoutSuccess || firebaseLogoutSuccess) { // Consider success if at least one succeeds
-            errorManager.showSuccess('Logout successful.', 2000);
-        } else {
-            // If both failed, show primary error (e.g., from GMC logout)
-            const firstError = results.find(r => r.status === 'rejected')?.reason || results.find(r => r.status === 'fulfilled' && !r.value?.success)?.value?.error;
-            throw new Error(firstError?.message || 'Logout failed for both services.');
-        }
-
-        // Refresh state and UI regardless of partial success
-        const stateResponse = await sendMessageToBackground({ action: 'getAuthState' });
-        if (stateResponse?.success && stateResponse.state) {
-            Object.assign(currentAuthState, stateResponse.state);
-            statusBarManager?.updateAuthState(currentAuthState);
-            statusBarManager?.updateUI();
-        } else {
-            console.warn("Failed to refresh auth state after logout.");
-        }
-
-        // Redirect to login page
-        window.location.href = 'login.html';
-
-    } catch (error) { // Catch errors from sendMessageToBackground or thrown errors
-        console.error('Logout failed:', error);
-        errorManager.showError(`Logout failed: ${error.message || 'Unknown error'}`);
-        // Attempt to update UI even on error
-        try {
-            const stateResponse = await sendMessageToBackground({ action: 'getAuthState' });
-            if (stateResponse?.success && stateResponse.state) {
-                Object.assign(currentAuthState, stateResponse.state);
-                statusBarManager?.updateAuthState(currentAuthState);
-                statusBarManager?.updateUI();
-            }
-        } catch (stateError) {
-            console.error("Failed to update state after logout error:", stateError);
-        }
-    } finally {
-        loadingManager.hideLoading();
-    }
-}
-
-/**
- * Sets up tab functionality
- * @param {NodeListOf<Element>} tabButtons - The tab buttons
- * @param {NodeListOf<Element>} tabPanels - The tab panels
- * @param {Function} sendMessageToBackground - Function to send messages to background
- * @param {Object} loadingManager - The loading manager
- * @param {Object} errorManager - The error manager
- * @param {Object} managers - The managers object containing all manager instances
- * @param {Object} currentAuthState - Reference to the current auth state
- */
-function setupTabs(tabButtons, tabPanels, sendMessageToBackground, loadingManager, errorManager, managers, currentAuthState) {
-    if (!tabButtons.length || !tabPanels.length) {
-        console.warn("Tab setup skipped: Buttons or panels not found.");
-        return;
-    }
-
-    let initialLoadDone = { // Track if initial load was done for tabs needing it
-        validation: false,
-        settings: false,
-        feed: false // For bulk actions gating/loading
-    };
-
-    const handleTabClick = async (button) => { // Make async
-        const targetTab = button.dataset.tab;
-        if (!targetTab || button.classList.contains('active')) return;
-        console.log('Tab clicked:', targetTab);
-
-        // Deactivate all first
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        tabPanels.forEach(panel => panel.classList.remove('active'));
-
-        // Activate clicked button and corresponding panel
-        button.classList.add('active');
-        const targetPanel = document.getElementById(`${targetTab}-tab`);
-        if (!targetPanel) {
-            console.warn(`Panel with ID "${targetTab}-tab" not found.`);
+        const selectedValue = e.target.value;
+        const previewContent = document.getElementById('previewContent');
+        
+        if (!previewContent) {
+            console.error('[DEBUG] Preview content container not found');
             return;
         }
-        targetPanel.classList.add('active');
-        console.log('Activated panel:', `${targetTab}-tab`);
-
-        // --- Handle Tab Specific Actions ---
-        loadingManager.showLoading(`Loading ${targetTab} tab...`);
+        
+        // Clear any existing content
+        previewContent.innerHTML = '';
+        
+        // Add a loading indicator
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'loading-indicator';
+        loadingIndicator.textContent = 'Loading analysis...';
+        previewContent.appendChild(loadingIndicator);
+        
+        // Simulate analysis (in a real implementation, this would call the appropriate analysis function)
+        setTimeout(() => {
+            // Remove loading indicator
+            previewContent.removeChild(loadingIndicator);
+            
+            // Add analysis result
+            const resultElement = document.createElement('div');
+            resultElement.className = 'analysis-result';
+            resultElement.innerHTML = `<h3>Analysis: ${selectedValue}</h3><p>Analysis results would appear here.</p>`;
+            previewContent.appendChild(resultElement);
+        }, 1000);
+    },
+    
+    /**
+     * Triggers GMC validation.
+     * 
+     * @param {Object} managers - Object containing manager instances
+     * @param {Object} errorManager - Error manager instance
+     * @returns {Promise<Object>} - A promise that resolves with the validation result
+     */
+    triggerGMCValidation: async function(managers, errorManager) {
+        console.log('[DEBUG] Triggering GMC validation');
+        
+        if (!managers || !managers.validationUIManager) {
+            console.error('[DEBUG] ValidationUIManager not available');
+            if (errorManager) {
+                errorManager.showError("Validation UI Manager is not initialized. Please reload the extension.");
+            } else {
+                alert("Validation UI Manager is not initialized. Please reload the extension.");
+            }
+            return { success: false, error: 'ValidationUIManager not available' };
+        }
+        
         try {
-            // Refresh auth state on tab switch to ensure UI reflects current status
-            const stateResponse = await sendMessageToBackground({ action: 'getAuthState' });
-            if (!stateResponse?.success || !stateResponse.state) throw new Error("Failed to refresh auth state.");
-            Object.assign(currentAuthState, stateResponse.state);
-            // Update managers needing state
-            managers.statusBarManager?.updateAuthState(currentAuthState);
-            managers.statusBarManager?.updateUI(); // Update status bar immediately
-
-            // Trigger manager initializations or updates based on tab
-            if (targetTab === 'feed') {
-                if (managers.feedManager) setTimeout(() => managers.feedManager.initFloatingScrollBar(), 100);
-                if (managers.bulkActionsManager) {
-                    console.log('Feed tab activated, applying bulk actions feature gating...');
-                    await managers.bulkActionsManager.applyFeatureGating();
-                    if (managers.bulkActionsManager.isPro && !initialLoadDone.feed) {
-                        await managers.bulkActionsManager.loadTemplates();
-                        initialLoadDone.feed = true;
-                    }
+            // Check if validationUIManager has the triggerGMCValidation method
+            if (typeof managers.validationUIManager.triggerGMCValidation !== 'function') {
+                console.error('[DEBUG] triggerGMCValidation method not available');
+                if (errorManager) {
+                    errorManager.showError("Validation method not available. Please reload the extension.");
+                } else {
+                    alert("Validation method not available. Please reload the extension.");
                 }
-            } else if (targetTab === 'validation') {
-                if (managers.validationUIManager && !initialLoadDone.validation) {
-                    console.log('Validation tab activated, loading history...');
-                    await managers.validationUIManager.loadValidationHistoryFromFirestore();
-                    initialLoadDone.validation = true;
-                } else if (managers.validationUIManager) {
-                    console.log('Validation tab re-activated.');
-                    // Optionally refresh: await managers.validationUIManager.loadValidationHistoryFromFirestore();
+                return { success: false, error: 'triggerGMCValidation method not available' };
+            }
+            
+            // Call the triggerGMCValidation method
+            const result = await managers.validationUIManager.triggerGMCValidation();
+            console.log('[DEBUG] GMC validation result:', result);
+            return result;
+        } catch (error) {
+            console.error('[DEBUG] Error triggering GMC validation:', error);
+            if (errorManager) {
+                errorManager.showError(`Validation failed: ${error.message}`);
+            } else {
+                alert(`Validation failed: ${error.message}`);
+            }
+            return { success: false, error: error.message };
+        }
+    },
+    
+    /**
+     * Verifies or authenticates with GMC.
+     * 
+     * @param {Function} sendMessageToBackground - Function to send messages to the background script
+     * @param {Object} loadingManager - Loading manager instance
+     * @param {Object} errorManager - Error manager instance
+     * @param {Object} statusBarManager - Status bar manager instance
+     * @param {Object} currentAuthState - Current authentication state
+     * @returns {Promise<Object>} - A promise that resolves with the authentication result
+     */
+    verifyOrAuthenticateGMC: async function(sendMessageToBackground, loadingManager, errorManager, statusBarManager, currentAuthState) {
+        console.log('[DEBUG] Verifying or authenticating with GMC');
+        
+        if (loadingManager) {
+            loadingManager.showLoading('Connecting to Google Merchant Center...');
+        }
+        
+        try {
+            // Send message to background script
+            const response = await sendMessageToBackground({ action: 'authenticateGmc' });
+            
+            if (loadingManager) {
+                loadingManager.hideLoading();
+            }
+            
+            if (response && response.success) {
+                console.log('[DEBUG] GMC authentication successful:', response);
+                
+                // Update auth state
+                if (currentAuthState) {
+                    currentAuthState.gmcAuthenticated = true;
+                    currentAuthState.gmcMerchantId = response.merchantId || null;
                 }
-            } else if (targetTab === 'settings') {
-                if (managers.settingsManager) {
-                    console.log('Settings tab activated, applying feature gating...');
-                    await managers.settingsManager.applyFeatureGating();
-                    if (managers.settingsManager.isPro && !initialLoadDone.settings) {
-                        await managers.settingsManager.loadSettings();
-                        await managers.settingsManager.loadCustomRules();
-                        initialLoadDone.settings = true;
-                    } else if (managers.settingsManager.isPro) {
-                        console.log('Settings tab re-activated.');
-                        // Optionally refresh: await managers.settingsManager.loadSettings(); await managers.settingsManager.loadCustomRules();
-                    }
+                
+                // Update status bar
+                if (statusBarManager && typeof statusBarManager.updateAuthState === 'function') {
+                    statusBarManager.updateAuthState(currentAuthState);
+                    statusBarManager.updateUI();
                 }
+                
+                // Show success message
+                if (errorManager && typeof errorManager.showSuccess === 'function') {
+                    errorManager.showSuccess('Connected to Google Merchant Center successfully!');
+                }
+                
+                return { success: true, merchantId: response.merchantId };
+            } else {
+                console.error('[DEBUG] GMC authentication failed:', response);
+                
+                // Show error message
+                if (errorManager && typeof errorManager.showError === 'function') {
+                    errorManager.showError(response && response.error ? response.error : 'Failed to connect to Google Merchant Center.');
+                }
+                
+                return { success: false, error: response && response.error ? response.error : 'Unknown error' };
             }
         } catch (error) {
-            console.error(`Error handling tab switch for ${targetTab}:`, error);
-            errorManager.showError(`Failed to load ${targetTab} tab content.`);
-        } finally {
-            loadingManager.hideLoading();
+            console.error('[DEBUG] Error authenticating with GMC:', error);
+            
+            if (loadingManager) {
+                loadingManager.hideLoading();
+            }
+            
+            // Show error message
+            if (errorManager && typeof errorManager.showError === 'function') {
+                errorManager.showError(`Error connecting to Google Merchant Center: ${error.message}`);
+            }
+            
+            return { success: false, error: error.message };
         }
-        // ------------------------------------
-    };
-
-    tabButtons.forEach(button => {
-        button.addEventListener('click', () => handleTabClick(button));
-    });
-
-    // Activate initial tab and trigger its actions AFTER ensuring auth state is loaded
-    const activateInitialTab = () => {
-        const initialActiveButton = document.querySelector('.tab-button.active') || tabButtons[0];
-        if (initialActiveButton && !initialActiveButton.classList.contains('active-init')) {
-            initialActiveButton.classList.add('active-init'); // Mark as initially processed
-            handleTabClick(initialActiveButton); // Trigger actions for initial tab
-        } else if (initialActiveButton) {
-            console.log("Initial tab already marked active, skipping initial click simulation.");
-            // Potentially force refresh/load if needed on popup reopen?
+    },
+    
+    /**
+     * Handles logout.
+     * 
+     * @param {Function} sendMessageToBackground - Function to send messages to the background script
+     * @param {Object} loadingManager - Loading manager instance
+     * @param {Object} errorManager - Error manager instance
+     * @param {Object} statusBarManager - Status bar manager instance
+     * @param {Object} currentAuthState - Current authentication state
+     * @returns {Promise<Object>} - A promise that resolves with the logout result
+     */
+    handleLogout: async function(sendMessageToBackground, loadingManager, errorManager, statusBarManager, currentAuthState) {
+        console.log('[DEBUG] Handling logout');
+        
+        if (loadingManager) {
+            loadingManager.showLoading('Signing out...');
         }
-    };
-
-    // Ensure initial auth state is loaded before activating the initial tab
-    if (currentAuthState) {
-        activateInitialTab();
-    } else {
-        // If initializePopup failed before getting state, this might not run.
-        console.warn("Initial auth state not available yet for initial tab activation.");
-        // Maybe activate first tab visually without triggering actions?
-        // tabButtons[0]?.classList.add('active');
-        // tabPanels[0]?.classList.add('active');
+        
+        try {
+            // Send message to background script
+            const response = await sendMessageToBackground({ action: 'signOut' });
+            
+            if (loadingManager) {
+                loadingManager.hideLoading();
+            }
+            
+            if (response && response.success) {
+                console.log('[DEBUG] Logout successful:', response);
+                
+                // Update auth state
+                if (currentAuthState) {
+                    currentAuthState.gmcAuthenticated = false;
+                    currentAuthState.firebaseAuthenticated = false;
+                    currentAuthState.isProUser = false;
+                    currentAuthState.gmcMerchantId = null;
+                    currentAuthState.firebaseUserId = null;
+                }
+                
+                // Update status bar
+                if (statusBarManager && typeof statusBarManager.updateAuthState === 'function') {
+                    statusBarManager.updateAuthState(currentAuthState);
+                    statusBarManager.updateUI();
+                }
+                
+                // Show success message
+                if (errorManager && typeof errorManager.showSuccess === 'function') {
+                    errorManager.showSuccess('Signed out successfully!');
+                }
+                
+                return { success: true };
+            } else {
+                console.error('[DEBUG] Logout failed:', response);
+                
+                // Show error message
+                if (errorManager && typeof errorManager.showError === 'function') {
+                    errorManager.showError(response && response.error ? response.error : 'Failed to sign out.');
+                }
+                
+                return { success: false, error: response && response.error ? response.error : 'Unknown error' };
+            }
+        } catch (error) {
+            console.error('[DEBUG] Error signing out:', error);
+            
+            if (loadingManager) {
+                loadingManager.hideLoading();
+            }
+            
+            // Show error message
+            if (errorManager && typeof errorManager.showError === 'function') {
+                errorManager.showError(`Error signing out: ${error.message}`);
+            }
+            
+            return { success: false, error: error.message };
+        }
+    },
+    
+    /**
+     * Sets up tabs.
+     * 
+     * @param {NodeList} tabButtons - Tab buttons
+     * @param {NodeList} tabPanels - Tab panels
+     * @param {Function} sendMessageToBackground - Function to send messages to the background script
+     * @param {Object} loadingManager - Loading manager instance
+     * @param {Object} errorManager - Error manager instance
+     * @param {Object} managers - Object containing manager instances
+     * @param {Object} currentAuthState - Current authentication state
+     */
+    setupTabs: function(tabButtons, tabPanels, sendMessageToBackground, loadingManager, errorManager, managers, currentAuthState) {
+        console.log('[DEBUG] Setting up tabs');
+        
+        if (!tabButtons || !tabPanels) {
+            console.error('[DEBUG] Tab buttons or panels not found');
+            return;
+        }
+        
+        // Set up tab switching
+        tabButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                if (!tabId) {
+                    console.error('[DEBUG] Tab ID not found for button:', button);
+                    return;
+                }
+                
+                console.log('[DEBUG] Tab clicked:', tabId);
+                
+                // Remove active class from all buttons and panels
+                tabButtons.forEach((btn) => btn.classList.remove('active'));
+                tabPanels.forEach((panel) => panel.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding panel
+                button.classList.add('active');
+                const panel = document.getElementById(tabId);
+                if (panel) {
+                    panel.classList.add('active');
+                } else {
+                    console.error('[DEBUG] Tab panel not found for ID:', tabId);
+                }
+                
+                // Handle special tab actions
+                this.handleTabActivation(tabId, sendMessageToBackground, loadingManager, errorManager, managers, currentAuthState);
+            });
+        });
+        
+        // Activate the first tab by default
+        if (tabButtons.length > 0) {
+            const firstTabId = tabButtons[0].getAttribute('data-tab');
+            if (firstTabId) {
+                const firstPanel = document.getElementById(firstTabId);
+                if (firstPanel) {
+                    tabButtons[0].classList.add('active');
+                    firstPanel.classList.add('active');
+                    
+                    // Handle special tab actions for the first tab
+                    this.handleTabActivation(firstTabId, sendMessageToBackground, loadingManager, errorManager, managers, currentAuthState);
+                }
+            }
+        }
+    },
+    
+    /**
+     * Handles tab activation.
+     * 
+     * @param {string} tabId - Tab ID
+     * @param {Function} sendMessageToBackground - Function to send messages to the background script
+     * @param {Object} loadingManager - Loading manager instance
+     * @param {Object} errorManager - Error manager instance
+     * @param {Object} managers - Object containing manager instances
+     * @param {Object} currentAuthState - Current authentication state
+     */
+    handleTabActivation: function(tabId, sendMessageToBackground, loadingManager, errorManager, managers, currentAuthState) {
+        console.log('[DEBUG] Handling tab activation:', tabId);
+        
+        // Handle special tab actions
+        switch (tabId) {
+            case 'validation-tab':
+                // Load validation history if authenticated
+                if (currentAuthState && currentAuthState.firebaseAuthenticated && managers && managers.validationUIManager) {
+                    console.log('[DEBUG] Loading validation history');
+                    
+                    if (loadingManager) {
+                        loadingManager.showLoading('Loading validation history...');
+                    }
+                    
+                    managers.validationUIManager.loadValidationHistoryFromFirestore()
+                        .then(() => {
+                            if (loadingManager) {
+                                loadingManager.hideLoading();
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('[DEBUG] Error loading validation history:', error);
+                            
+                            if (loadingManager) {
+                                loadingManager.hideLoading();
+                            }
+                            
+                            if (errorManager) {
+                                errorManager.showError(`Error loading validation history: ${error.message}`);
+                            }
+                        });
+                }
+                break;
+                
+            case 'settings-tab':
+                // Load settings if authenticated
+                if (currentAuthState && currentAuthState.firebaseAuthenticated && managers && managers.settingsManager) {
+                    console.log('[DEBUG] Loading settings');
+                    
+                    if (loadingManager) {
+                        loadingManager.showLoading('Loading settings...');
+                    }
+                    
+                    managers.settingsManager.loadSettings()
+                        .then(() => {
+                            if (loadingManager) {
+                                loadingManager.hideLoading();
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('[DEBUG] Error loading settings:', error);
+                            
+                            if (loadingManager) {
+                                loadingManager.hideLoading();
+                            }
+                            
+                            if (errorManager) {
+                                errorManager.showError(`Error loading settings: ${error.message}`);
+                            }
+                        });
+                }
+                break;
+                
+            case 'bulk-actions-tab':
+                // Initialize bulk actions if authenticated
+                if (currentAuthState && currentAuthState.firebaseAuthenticated && managers && managers.bulkActionsManager) {
+                    console.log('[DEBUG] Initializing bulk actions');
+                    
+                    if (loadingManager) {
+                        loadingManager.showLoading('Initializing bulk actions...');
+                    }
+                    
+                    managers.bulkActionsManager.initialize()
+                        .then(() => {
+                            if (loadingManager) {
+                                loadingManager.hideLoading();
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('[DEBUG] Error initializing bulk actions:', error);
+                            
+                            if (loadingManager) {
+                                loadingManager.hideLoading();
+                            }
+                            
+                            if (errorManager) {
+                                errorManager.showError(`Error initializing bulk actions: ${error.message}`);
+                            }
+                        });
+                }
+                break;
+                
+            default:
+                // No special action for other tabs
+                break;
+        }
     }
-}
-
-// Make functions available globally
-window.PopupEventHandlers = {
-    handleDropdownChange,
-    triggerGMCValidation,
-    verifyOrAuthenticateGMC,
-    handleLogout,
-    setupTabs
 };
+
+// Make the PopupEventHandlers available globally
+window.PopupEventHandlers = PopupEventHandlers;
+
+// No default export needed for regular scripts

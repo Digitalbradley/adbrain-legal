@@ -208,6 +208,12 @@
             // We'll remove it when the user fixes the errors
             
             console.log('[DIRECT DEBUG] Row highlighted successfully');
+            
+            // Store the highlighted row reference for later cleanup
+            if (!window.highlightedRows) {
+                window.highlightedRows = new Map();
+            }
+            window.highlightedRows.set(rowIndex, row);
         }
     }
     
@@ -273,33 +279,57 @@
         // Add to document
         document.body.appendChild(panel);
         
-        // Add close button functionality
+        // Add close button functionality with proper cleanup
         const closeBtn = header.querySelector('button');
         if (closeBtn) {
-            closeBtn.addEventListener('click', () => panel.remove());
+            // Store the cleanup function returned by makeDraggable
+            let cleanupDraggable;
+            
+            closeBtn.addEventListener('click', () => {
+                console.log('[DIRECT] Closing validation details panel');
+                // Call the cleanup function before removing the panel
+                if (typeof cleanupDraggable === 'function') {
+                    cleanupDraggable();
+                }
+                panel.remove();
+                console.log('[DIRECT] Validation details panel removed');
+                
+                // Reinitialize tab event listeners to restore tab functionality
+                setTimeout(() => {
+                    console.log('[DIRECT] Reinitializing tab event listeners after panel removal');
+                    if (window.PopupEventHandlers && typeof window.PopupEventHandlers.reinitializeTabListeners === 'function') {
+                        window.PopupEventHandlers.reinitializeTabListeners();
+                    }
+                }, 100);
+            });
+            
+            // Make the panel draggable and store the cleanup function
+            cleanupDraggable = makeDraggable(panel);
+        } else {
+            // If no close button, still make the panel draggable
+            makeDraggable(panel);
         }
         
         // Add row navigation functionality
         setupRowNavigation(panel);
-        
-        // Make the panel draggable
-        makeDraggable(panel);
     }
     
     /**
      * Makes an element draggable by its header
      * @param {HTMLElement} element The element to make draggable
+     * @returns {Function} Cleanup function to remove event listeners
      */
     function makeDraggable(element) {
         const header = element.querySelector('.validation-panel-header');
-        if (!header) return;
+        if (!header) return () => {}; // Return empty cleanup function if header not found
         
         let isDragging = false;
         let offsetX, offsetY;
         
         header.style.cursor = 'move';
         
-        header.addEventListener('mousedown', (e) => {
+        // Define event handlers as named functions so we can remove them later
+        function handleMouseDown(e) {
             // Ignore if clicking on the close button
             if (e.target.tagName === 'BUTTON') return;
             
@@ -309,9 +339,9 @@
             
             // Prevent text selection during drag
             e.preventDefault();
-        });
+        }
         
-        document.addEventListener('mousemove', (e) => {
+        function handleMouseMove(e) {
             if (!isDragging) return;
             
             const x = e.clientX - offsetX;
@@ -327,20 +357,178 @@
             // Update position to fixed with calculated values
             element.style.position = 'fixed';
             element.style.right = 'auto';
-        });
+        }
         
-        document.addEventListener('mouseup', () => {
+        function handleMouseUp() {
             isDragging = false;
-        });
+        }
+        
+        // Add event listeners
+        header.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        // Return a cleanup function that removes all event listeners
+        return function cleanup() {
+            console.log('[DIRECT] Cleaning up draggable panel event listeners');
+            header.removeEventListener('mousedown', handleMouseDown);
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
     }
     
+    /**
+     * Marks an issue as fixed and removes it from the validation panel
+     * @param {string} offerId - The ID of the offer with the issue
+     * @param {string} fieldName - The field name of the issue
+     * @returns {boolean} - Whether the issue was successfully marked as fixed
+     */
+    function markIssueAsFixed(offerId, fieldName) {
+        console.log(`[DIRECT] Marking issue as fixed for offer ${offerId}, field ${fieldName}`);
+        
+        // Find the active validation panel
+        const activePanel = document.querySelector('.floating-validation-panel');
+        if (!activePanel) {
+            console.warn('[DIRECT] Cannot mark issue as fixed: No active validation panel');
+            return false;
+        }
+        
+        // Get the feed ID from the panel
+        const feedId = activePanel.dataset.feedId;
+        if (!feedId) {
+            console.warn(`[DIRECT] Cannot mark issue as fixed: No feed ID in panel`);
+            return false;
+        }
+        
+        // First, verify that the field actually meets requirements
+        const container = document.getElementById('previewContent');
+        if (container) {
+            const row = container.querySelector(`tr[data-offer-id="${offerId}"]`);
+            if (row) {
+                const field = row.querySelector(`.editable-field[data-field="${fieldName}"]`);
+                if (field) {
+                    const content = field.textContent || '';
+                    const currentLength = content.length;
+                    
+                    // Define validation rules based on field type
+                    const isDescription = fieldName === 'description';
+                    const minLength = isDescription ? 90 : 30; // Title min is 30
+                    const maxLength = isDescription ? 5000 : 150; // Title max is 150
+                    
+                    // Only proceed if the field actually meets requirements
+                    if (currentLength < minLength || currentLength > maxLength) {
+                        console.log(`[DIRECT] Field "${fieldName}" for Offer ID ${offerId} does not meet requirements (${currentLength}/${minLength}). Not removing issue.`);
+                        return false;
+                    }
+                    
+                    console.log(`[DIRECT] Verified field "${fieldName}" for Offer ID ${offerId} meets requirements (${currentLength}/${minLength}). Proceeding with issue removal.`);
+                }
+            }
+        }
+
+        // Extract row index from offerId if possible
+        let rowIndex;
+        const match = offerId.match(/\d+$/);
+        if (match) {
+            rowIndex = match[0].replace(/^0+/, ''); // Remove leading zeros
+            console.log(`[DIRECT] Extracted row index ${rowIndex} from offerId ${offerId}`);
+        }
+
+        if (!rowIndex) {
+            console.warn(`[DIRECT] Could not determine row index for ${offerId}`);
+            return false;
+        }
+
+        // Try multiple selector approaches to find the issue
+        // First try with data-field attribute
+        let selector = `.issue-item[data-row="${rowIndex}"][data-field="${fieldName}"]`;
+        let issueItemsToRemove = activePanel.querySelectorAll(selector);
+        
+        // If no items found, try with the field name in the issue message
+        if (issueItemsToRemove.length === 0) {
+            console.log(`[DIRECT] No issues found with exact field match, trying message content search`);
+            const allIssueItems = activePanel.querySelectorAll(`.issue-item[data-row="${rowIndex}"]`);
+            
+            // Manual filtering since :contains is not standard
+            issueItemsToRemove = Array.from(allIssueItems).filter(item => {
+                const messageEl = item.querySelector('.issue-message') || item;
+                return messageEl.textContent.toLowerCase().includes(fieldName.toLowerCase());
+            });
+        }
+        
+        // If still no items found, try with just the row
+        if (issueItemsToRemove.length === 0) {
+            console.log(`[DIRECT] Trying broader selector for row ${rowIndex}`);
+            selector = `.issue-item[data-row="${rowIndex}"]`;
+            issueItemsToRemove = activePanel.querySelectorAll(selector);
+        }
+        
+        console.log(`[DIRECT] Searching for issue items with selector: ${selector}`);
+        
+        if (issueItemsToRemove.length > 0) {
+            console.log(`[DIRECT] Found ${issueItemsToRemove.length} issue items to remove.`);
+            let issueItemGroup = null; // Store the parent group
+            issueItemsToRemove.forEach(item => {
+                if (!issueItemGroup) {
+                    issueItemGroup = item.closest('div[style*="margin-bottom: 15px"]') || item.parentElement;
+                }
+                item.remove(); // Remove each matching issue item block
+            });
+
+            // Check if the parent group has any remaining issue items
+            if (issueItemGroup) {
+                const remainingIssues = issueItemGroup.querySelectorAll('.issue-item');
+                if (!remainingIssues || remainingIssues.length === 0) {
+                    // If no issues left in this group, remove the whole group
+                    issueItemGroup.remove();
+                }
+            }
+
+            // Update the validation results in memory if available
+            if (window.validationIssues && window.validationIssues[feedId]) {
+                const results = window.validationIssues[feedId];
+                if (results && results.issues) {
+                    // Remove the issue from the stored results
+                    results.issues = results.issues.filter(issue => {
+                        const issueOfferId = issue.offerId || issue['Offer ID'];
+                        return !(issueOfferId === offerId && issue.field === fieldName);
+                    });
+                    console.log(`[DIRECT] Updated stored validation results for feed ${feedId}. Now has ${results.issues.length} issues.`);
+                }
+            }
+            
+            // Remove row highlighting if this was the last issue for this row
+            if (window.highlightedRows && window.highlightedRows.has(rowIndex)) {
+                const highlightedRow = window.highlightedRows.get(rowIndex);
+                
+                // Check if there are any remaining issues for this row
+                const remainingRowIssues = Array.from(activePanel.querySelectorAll(`.issue-item[data-row="${rowIndex}"]`));
+                
+                if (remainingRowIssues.length === 0) {
+                    console.log(`[DIRECT] No more issues for row ${rowIndex}, removing highlighting`);
+                    highlightedRow.classList.remove('row-highlight');
+                    highlightedRow.classList.remove('highlighted-row');
+                    window.highlightedRows.delete(rowIndex);
+                } else {
+                    console.log(`[DIRECT] ${remainingRowIssues.length} issues still exist for row ${rowIndex}, keeping highlighting`);
+                }
+            }
+            
+            return true;
+        } else {
+            console.warn(`[DIRECT] Could not find issue item to remove with selector: ${selector}`);
+            return false;
+        }
+    }
+
     // Export functions to global scope
     window.DirectValidationUI = {
         displayValidationResults: displayValidationResults,
         formatIssuesList: formatIssuesList,
         setupRowNavigation: setupRowNavigation,
         displayValidationDetailsPopup: displayValidationDetailsPopup,
-        makeDraggable: makeDraggable
+        makeDraggable: makeDraggable,
+        markIssueAsFixed: markIssueAsFixed
     };
     
     console.log('[DIRECT] UI module initialized');

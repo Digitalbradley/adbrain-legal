@@ -8,7 +8,18 @@
 /**
  * Initializes a mock AuthManager implementation in the window object
  */
-function initializeAuthMock() {
+function initializeAuthMock(options = {}) {
+    // Default options
+    const defaultOptions = {
+        simulateAuthError: false,
+        simulateFirebaseError: false,
+        simulateNetworkError: false
+    };
+    
+    // Merge provided options with defaults
+    const mockOptions = { ...defaultOptions, ...options };
+    
+    console.log("Initializing Auth Mock with options:", mockOptions);
     console.log("Initializing Auth Mock...");
     
     // Create mock AuthManager class if it doesn't exist
@@ -20,21 +31,40 @@ function initializeAuthMock() {
              */
             constructor() {
                 console.log("Mock AuthManager created");
-                this.gmcAuthenticated = true;
-                this.firebaseAuthenticated = true;
-                this.isProUser = true;
-                this.gmcMerchantId = 'MOCK-123456';
-                this.firebaseUserId = 'mock-user-id';
+                
+                // Use options to simulate different error conditions
+                this.gmcAuthenticated = !mockOptions.simulateAuthError;
+                this.firebaseAuthenticated = !mockOptions.simulateFirebaseError;
+                this.isProUser = true; // Can be changed for testing pro/free features
+                this.gmcMerchantId = mockOptions.simulateAuthError ? null : 'MOCK-123456';
+                this.firebaseUserId = mockOptions.simulateFirebaseError ? null : 'mock-user-id';
+                this.simulateNetworkError = mockOptions.simulateNetworkError;
             }
             
             /**
              * Initializes the auth manager
              * @returns {Promise<boolean>} A promise that resolves to true
              */
-            init() { 
+            init() {
                 try {
                     console.log("Mock AuthManager: init called");
-                    return Promise.resolve(true); 
+                    
+                    if (this.simulateNetworkError) {
+                        console.error("Mock AuthManager: Simulating network error");
+                        return Promise.reject(new Error("Network error: Unable to connect to authentication server"));
+                    }
+                    
+                    if (!this.gmcAuthenticated) {
+                        console.error("Mock AuthManager: Simulating GMC authentication error");
+                        return Promise.reject(new Error("Authentication error: Unable to authenticate with Google Merchant Center"));
+                    }
+                    
+                    if (!this.firebaseAuthenticated) {
+                        console.error("Mock AuthManager: Simulating Firebase authentication error");
+                        return Promise.reject(new Error("Authentication error: Unable to authenticate with Firebase"));
+                    }
+                    
+                    return Promise.resolve(true);
                 } catch (error) {
                     console.error("Mock AuthManager: init error", error);
                     return Promise.reject(error);
@@ -115,3 +145,21 @@ function initializeAuthMock() {
 
 // Make function available globally
 window.initializeAuthMock = initializeAuthMock;
+
+// Add helper functions to simulate different error conditions
+window.simulateAuthError = function() {
+    initializeAuthMock({ simulateAuthError: true });
+};
+
+window.simulateFirebaseError = function() {
+    initializeAuthMock({ simulateFirebaseError: true });
+};
+
+window.simulateNetworkError = function() {
+    initializeAuthMock({ simulateNetworkError: true });
+};
+
+// Reset to normal behavior
+window.resetAuthMock = function() {
+    initializeAuthMock();
+};

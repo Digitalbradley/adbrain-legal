@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ES Module Phase 5.2 Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            padding: 8px 15px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .test-button:hover {
+            background-color: #3367d6;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .success {
+            color: green;
+        }
+        .failure {
+            color: red;
+        }
+        .log-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>ES Module Phase 5.2 Test</h1>
+    
+    <div class="test-section">
+        <h2>Module Availability Test</h2>
+        <button id="testAppModulesBtn" class="test-button">Test AppModules</button>
+        <button id="testWindowModulesBtn" class="test-button">Test Window Modules</button>
+        <div id="modulesResult" class="result">Click a button to test module availability</div>
+    </div>
+    
+    <div class="log-container">
+        <h3>Console Log</h3>
+        <div id="logOutput"></div>
+    </div>
+    
+    <!-- Import app.js -->
+    <script type="module" src="app.js"></script>
+    
+    <!-- Test Script -->
+    <script type="module">
+        // Function to log to both console and UI
+        function log(message) {
+            console.log(message);
+            const logOutput = document.getElementById('logOutput');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = message;
+            logOutput.appendChild(logEntry);
+        }
+
+        // Set up test buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            // Test AppModules
+            document.getElementById('testAppModulesBtn').addEventListener('click', () => {
+                const result = document.getElementById('modulesResult');
+                if (window.AppModules) {
+                    const modules = Object.keys(window.AppModules);
+                    result.innerHTML = `<span class="success">✅ AppModules is available with ${modules.length} modules:</span><br>`;
+                    result.innerHTML += modules.join(', ');
+                    log('AppModules test: PASSED');
+                    
+                    // Test module groups in AppModules
+                    if (window.AppModules.utilityModules) {
+                        log('✅ utilityModules in AppModules: PASSED');
+                    } else {
+                        log('❌ utilityModules in AppModules: FAILED');
+                    }
+                    
+                    if (window.AppModules.validationLibraries) {
+                        log('✅ validationLibraries in AppModules: PASSED');
+                    } else {
+                        log('❌ validationLibraries in AppModules: FAILED');
+                    }
+                    
+                    if (window.AppModules.mockModules) {
+                        log('✅ mockModules in AppModules: PASSED');
+                    } else {
+                        log('❌ mockModules in AppModules: FAILED');
+                    }
+                    
+                    if (window.AppModules.remainingModules) {
+                        log('✅ remainingModules in AppModules: PASSED');
+                    } else {
+                        log('❌ remainingModules in AppModules: FAILED');
+                    }
+                    
+                    if (window.AppModules.directValidationModules) {
+                        log('✅ directValidationModules in AppModules: PASSED');
+                    } else {
+                        log('❌ directValidationModules in AppModules: FAILED');
+                    }
+                } else {
+                    result.innerHTML = '<span class="failure">❌ AppModules is not available</span>';
+                    log('AppModules test: FAILED');
+                }
+            });
+            
+            // Test Window Modules
+            document.getElementById('testWindowModulesBtn').addEventListener('click', () => {
+                const result = document.getElementById('modulesResult');
+                let passed = true;
+                result.innerHTML = '<span class="success">Testing window modules:</span><br>';
+                
+                // Test module groups on window
+                if (window.UtilityModules) {
+                    result.innerHTML += '✅ UtilityModules is available globally<br>';
+                    log('UtilityModules test: PASSED');
+                } else {
+                    result.innerHTML += '❌ UtilityModules is not available globally<br>';
+                    log('UtilityModules test: FAILED');
+                    passed = false;
+                }
+                
+                if (window.ValidationLibraries) {
+                    result.innerHTML += '✅ ValidationLibraries is available globally<br>';
+                    log('ValidationLibraries test: PASSED');
+                } else {
+                    result.innerHTML += '❌ ValidationLibraries is not available globally<br>';
+                    log('ValidationLibraries test: FAILED');
+                    passed = false;
+                }
+                
+                if (window.MockModules) {
+                    result.innerHTML += '✅ MockModules is available globally<br>';
+                    log('MockModules test: PASSED');
+                } else {
+                    result.innerHTML += '❌ MockModules is not available globally<br>';
+                    log('MockModules test: FAILED');
+                    passed = false;
+                }
+                
+                if (window.RemainingModules) {
+                    result.innerHTML += '✅ RemainingModules is available globally<br>';
+                    log('RemainingModules test: PASSED');
+                } else {
+                    result.innerHTML += '❌ RemainingModules is not available globally<br>';
+                    log('RemainingModules test: FAILED');
+                    passed = false;
+                }
+                
+                if (window.DirectValidationModules) {
+                    result.innerHTML += '✅ DirectValidationModules is available globally<br>';
+                    log('DirectValidationModules test: PASSED');
+                } else {
+                    result.innerHTML += '❌ DirectValidationModules is not available globally<br>';
+                    log('DirectValidationModules test: FAILED');
+                    passed = false;
+                }
+                
+                if (passed) {
+                    result.innerHTML += '<br><span class="success">All window modules test: PASSED</span>';
+                    log('All window modules test: PASSED');
+                } else {
+                    result.innerHTML += '<br><span class="failure">Some window modules test: FAILED</span>';
+                    log('Some window modules test: FAILED');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

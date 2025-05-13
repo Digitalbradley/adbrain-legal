@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manager Factory Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #444;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left: 4px solid #f44336;
+        }
+        .log-output {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+        }
+        .is-loading {
+            cursor: wait;
+            opacity: 0.7;
+        }
+        .is-loading::after {
+            content: "Loading...";
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+        /* Tab styles */
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            background-color: #f1f1f1;
+            color: #333;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .tab-button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .tab-panel {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Manager Factory Test</h1>
+    
+    <!-- Test elements -->
+    <input type="file" id="fileInput">
+    <button id="previewFeed">Preview Feed</button>
+    <div id="previewContent"></div>
+    <button id="exportFeed">Export Feed</button>
+    <button id="testGMCAuth">Verify GMC</button>
+    <button id="validateGMC">Validate GMC</button>
+    <button id="logoutButton">Logout</button>
+    <select id="analysisDropdown">
+        <option value="option1">Option 1</option>
+        <option value="option2">Option 2</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="Search...">
+    <select id="searchColumn">
+        <option value="all">All Columns</option>
+        <option value="title">Title</option>
+        <option value="description">Description</option>
+    </select>
+    <select id="searchType">
+        <option value="contains">Contains</option>
+        <option value="exact">Exact Match</option>
+    </select>
+    <button id="clearSearchBtn">Clear</button>
+    <div class="search-status">No search results</div>
+    
+    <!-- Tab elements -->
+    <div class="tab-buttons">
+        <button class="tab-button" data-tab="feed">Feed</button>
+        <button class="tab-button" data-tab="validation">Validation</button>
+        <button class="tab-button" data-tab="settings">Settings</button>
+    </div>
+    <div class="tab-panels">
+        <div class="tab-panel" id="feed-tab">Feed Tab Content</div>
+        <div class="tab-panel" id="validation-tab">
+            <table>
+                <tbody id="validationHistory"></tbody>
+            </table>
+        </div>
+        <div class="tab-panel" id="settings-tab">Settings Tab Content</div>
+    </div>
+    
+    <!-- Status elements -->
+    <div id="feedStatusContent"></div>
+    <div id="dataContainer"></div>
+    
+    <!-- Test sections -->
+    <div class="test-section">
+        <h2>Initialization Test</h2>
+        <button id="testInitialization">Test Initialization</button>
+        <div id="initializationResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Basic Managers Test</h2>
+        <button id="testBasicManagers">Test Basic Managers</button>
+        <div id="basicManagersResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Dependent Managers Test</h2>
+        <button id="testDependentManagers">Test Dependent Managers</button>
+        <div id="dependentManagersResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Cross-References Test</h2>
+        <button id="testCrossReferences">Test Cross-References</button>
+        <div id="crossReferencesResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Manager Access Test</h2>
+        <button id="testManagerAccess">Test Manager Access</button>
+        <div id="managerAccessResult" class="result"></div>
+    </div>
+    
+    <div class="log-output" id="logOutput"></div>
+    
+    <!-- Import modules as ES modules -->
+    <script type="module">
+        import DOMManager from './dom_manager.js';
+        import ManagerFactory from './manager_factory.js';
+        
+        // Override console.log to display in the log output
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        
+        console.log = function() {
+            const args = Array.from(arguments);
+            originalConsoleLog.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.textContent = args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                    try {
+                        // Use a replacer function to handle circular references
+                        const getCircularReplacer = () => {
+                            const seen = new WeakSet();
+                            return (key, value) => {
+                                if (typeof value === 'object' && value !== null) {
+                                    if (seen.has(value)) {
+                                        return '[Circular Reference]';
+                                    }
+                                    seen.add(value);
+                                }
+                                return value;
+                            };
+                        };
+                        return JSON.stringify(arg, getCircularReplacer());
+                    } catch (error) {
+                        return `[Object with circular reference: ${Object.keys(arg).join(', ')}]`;
+                    }
+                }
+                return arg;
+            }).join(' ');
+            document.getElementById('logOutput').appendChild(logEntry);
+        };
+        
+        console.error = function() {
+            const args = Array.from(arguments);
+            originalConsoleError.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = 'red';
+            logEntry.textContent = 'ERROR: ' + args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                    try {
+                        // Use a replacer function to handle circular references
+                        const getCircularReplacer = () => {
+                            const seen = new WeakSet();
+                            return (key, value) => {
+                                if (typeof value === 'object' && value !== null) {
+                                    if (seen.has(value)) {
+                                        return '[Circular Reference]';
+                                    }
+                                    seen.add(value);
+                                }
+                                return value;
+                            };
+                        };
+                        return JSON.stringify(arg, getCircularReplacer());
+                    } catch (error) {
+                        return `[Object with circular reference: ${Object.keys(arg).join(', ')}]`;
+                    }
+                }
+                return arg;
+            }).join(' ');
+            document.getElementById('logOutput').appendChild(logEntry);
+        };
+        
+        console.warn = function() {
+            const args = Array.from(arguments);
+            originalConsoleWarn.apply(console, args);
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = 'orange';
+            logEntry.textContent = 'WARNING: ' + args.map(arg => {
+                if (typeof arg === 'object' && arg !== null) {
+                    try {
+                        // Use a replacer function to handle circular references
+                        const getCircularReplacer = () => {
+                            const seen = new WeakSet();
+                            return (key, value) => {
+                                if (typeof value === 'object' && value !== null) {
+                                    if (seen.has(value)) {
+                                        return '[Circular Reference]';
+                                    }
+                                    seen.add(value);
+                                }
+                                return value;
+                            };
+                        };
+                        return JSON.stringify(arg, getCircularReplacer());
+                    } catch (error) {
+                        return `[Object with circular reference: ${Object.keys(arg).join(', ')}]`;
+                    }
+                }
+                return arg;
+            }).join(' ');
+            document.getElementById('logOutput').appendChild(logEntry);
+        };
+        
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Manager Factory Test page loaded');
+            
+            // Test initialization
+            document.getElementById('testInitialization').addEventListener('click', () => {
+                console.log('Testing initialization...');
+                
+                try {
+                    // Create a DOMManager instance
+                    const domManager = new DOMManager();
+                    
+                    // Create a ManagerFactory instance
+                    const managerFactory = new ManagerFactory(domManager);
+                    
+                    const result = document.getElementById('initializationResult');
+                    result.textContent = `Initialization successful. ManagerFactory instance created.`;
+                    result.classList.remove('error');
+                    
+                    console.log('Initialization test passed');
+                } catch (error) {
+                    const result = document.getElementById('initializationResult');
+                    result.textContent = `Initialization failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('Initialization test failed:', error);
+                }
+            });
+            
+            // Test basic managers
+            document.getElementById('testBasicManagers').addEventListener('click', () => {
+                console.log('Testing basic managers...');
+                
+                try {
+                    // Create a DOMManager instance
+                    const domManager = new DOMManager();
+                    
+                    // Create a ManagerFactory instance
+                    const managerFactory = new ManagerFactory(domManager);
+                    
+                    // Check if basic managers were created
+                    const basicManagers = [
+                        'monitor',
+                        'loadingManager',
+                        'errorManager',
+                        'authManager',
+                        'gmcApi',
+                        'gmcValidator',
+                        'statusBarManager',
+                        'searchManager'
+                    ];
+                    
+                    const managersCreated = basicManagers.filter(managerName => managerFactory.managers[managerName]);
+                    
+                    const result = document.getElementById('basicManagersResult');
+                    result.textContent = `Basic managers test ${managersCreated.length === basicManagers.length ? 'successful' : 'partially successful'}. Created ${managersCreated.length}/${basicManagers.length} managers: ${managersCreated.join(', ')}`;
+                    result.classList.toggle('error', managersCreated.length < basicManagers.length);
+                    
+                    console.log('Basic managers test', managersCreated.length === basicManagers.length ? 'passed' : 'partially passed');
+                } catch (error) {
+                    const result = document.getElementById('basicManagersResult');
+                    result.textContent = `Basic managers test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('Basic managers test failed:', error);
+                }
+            });
+            
+            // Test dependent managers
+            document.getElementById('testDependentManagers').addEventListener('click', () => {
+                console.log('Testing dependent managers...');
+                
+                try {
+                    // Create a DOMManager instance
+                    const domManager = new DOMManager();
+                    
+                    // Create a ManagerFactory instance
+                    const managerFactory = new ManagerFactory(domManager);
+                    
+                    // Check if dependent managers were created
+                    const dependentManagers = [
+                        'validationUIManager',
+                        'feedCoordinator',
+                        'feedManager',
+                        'settingsManager',
+                        'bulkActionsManager'
+                    ];
+                    
+                    const managersCreated = dependentManagers.filter(managerName => managerFactory.managers[managerName]);
+                    
+                    const result = document.getElementById('dependentManagersResult');
+                    result.textContent = `Dependent managers test ${managersCreated.length === dependentManagers.length ? 'successful' : 'partially successful'}. Created ${managersCreated.length}/${dependentManagers.length} managers: ${managersCreated.join(', ')}`;
+                    result.classList.toggle('error', managersCreated.length < dependentManagers.length);
+                    
+                    console.log('Dependent managers test', managersCreated.length === dependentManagers.length ? 'passed' : 'partially passed');
+                } catch (error) {
+                    const result = document.getElementById('dependentManagersResult');
+                    result.textContent = `Dependent managers test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('Dependent managers test failed:', error);
+                }
+            });
+            
+            // Test cross-references
+            document.getElementById('testCrossReferences').addEventListener('click', () => {
+                console.log('Testing cross-references...');
+                
+                try {
+                    // Create a DOMManager instance
+                    const domManager = new DOMManager();
+                    
+                    // Create a ManagerFactory instance with mock implementations
+                    const managerFactory = new ManagerFactory(domManager, { useMocks: true });
+                    
+                    // Mock the validationUIManager and feedCoordinator
+                    managerFactory.managers.validationUIManager = {
+                        managers: {}
+                    };
+                    
+                    managerFactory.managers.feedCoordinator = {
+                        managers: {}
+                    };
+                    
+                    // Set up cross-references
+                    managerFactory.setupCrossReferences();
+                    
+                    // Check if cross-references were set up
+                    const validationUIManagerHasFeedCoordinator = managerFactory.managers.validationUIManager.managers.feedManager === managerFactory.managers.feedCoordinator;
+                    const feedCoordinatorHasValidationUIManager = managerFactory.managers.feedCoordinator.managers.validationUIManager === managerFactory.managers.validationUIManager;
+                    
+                    const result = document.getElementById('crossReferencesResult');
+                    result.textContent = `Cross-references test ${validationUIManagerHasFeedCoordinator && feedCoordinatorHasValidationUIManager ? 'successful' : 'failed'}. ValidationUIManager has FeedCoordinator: ${validationUIManagerHasFeedCoordinator}, FeedCoordinator has ValidationUIManager: ${feedCoordinatorHasValidationUIManager}`;
+                    result.classList.toggle('error', !validationUIManagerHasFeedCoordinator || !feedCoordinatorHasValidationUIManager);
+                    
+                    console.log('Cross-references test', validationUIManagerHasFeedCoordinator && feedCoordinatorHasValidationUIManager ? 'passed' : 'failed');
+                } catch (error) {
+                    const result = document.getElementById('crossReferencesResult');
+                    result.textContent = `Cross-references test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('Cross-references test failed:', error);
+                }
+            });
+            
+            // Test manager access
+            document.getElementById('testManagerAccess').addEventListener('click', () => {
+                console.log('Testing manager access...');
+                
+                try {
+                    // Create a DOMManager instance
+                    const domManager = new DOMManager();
+                    
+                    // Create a ManagerFactory instance
+                    const managerFactory = new ManagerFactory(domManager);
+                    
+                    // Test getAllManagers
+                    const allManagers = managerFactory.getAllManagers();
+                    const allManagersCount = Object.keys(allManagers).length;
+                    
+                    // Test get
+                    const loadingManager = managerFactory.get('loadingManager');
+                    const nonExistingManager = managerFactory.get('nonExistingManager');
+                    
+                    const result = document.getElementById('managerAccessResult');
+                    result.textContent = `Manager access test successful. getAllManagers returned ${allManagersCount} managers. get('loadingManager') returned ${loadingManager ? 'an object' : 'null'}, get('nonExistingManager') returned ${nonExistingManager ? 'an object' : 'null'}`;
+                    result.classList.remove('error');
+                    
+                    console.log('Manager access test passed');
+                } catch (error) {
+                    const result = document.getElementById('managerAccessResult');
+                    result.textContent = `Manager access test failed: ${error.message}`;
+                    result.classList.add('error');
+                    
+                    console.error('Manager access test failed:', error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,15 +1,11 @@
-// Utility function for debouncing (Copied from popup.js)
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
+// Use global modules
+// No need to import them since they're already available globally
+// const CSVParser = window.CSVParser;
+// const StatusManager = window.StatusManager;
+// const FeedDisplayManager = window.FeedDisplayManager;
+// const ContentTypeValidator = window.ContentTypeValidator;
+
+// Use global debounce function from popup_utils.js
 
 /**
  * Manages feed loading, parsing, preview display, and editable cells.
@@ -27,6 +23,8 @@ class FeedManager {
      * @param {MonitoringSystem} managers.monitor
      */
     constructor(elements, managers) {
+        console.log('[FeedManager] Constructor called with managers:', Object.keys(managers || {}));
+        
         this.elements = elements;
         this.managers = managers; // Store loadingManager, errorManager, searchManager, monitor, validationUIManager
         // <<< Note: validationUIManager is now expected here due to popup.js changes
@@ -41,17 +39,47 @@ class FeedManager {
         // Just log a warning if validationUIManager is missing
         if (!this.managers.validationUIManager) {
              console.warn('FeedManager: ValidationUIManager not available during initialization. Will attempt to use it if it becomes available later.');
+        } else {
+             console.log('FeedManager: ValidationUIManager is available during initialization:', this.managers.validationUIManager);
         }
-        this.offerIdToRowIndexMap = {}; // Map offerId to visual row index
 
+        // Initialize StatusManager if not provided
+        if (!this.managers.statusManager) {
+            console.log('[DEBUG] Creating StatusManager instance');
+            this.managers.statusManager = new StatusManager();
+        }
+        
+        // Initialize FeedDisplayManager if not provided
+        if (!this.managers.displayManager) {
+            console.log('[DEBUG] Creating FeedDisplayManager instance');
+            this.managers.displayManager = new FeedDisplayManager(elements, managers);
+            
+            // Set up event listeners for editable fields
+            this.managers.displayManager.setupEditableFieldListeners(this.handleFieldEdit.bind(this));
+        }
+        
         this.initialize();
     }
 
     initialize() {
         console.log('[DEBUG] Initializing FeedManager...');
         console.log('[DEBUG] FeedManager elements:', this.elements);
-        console.log('[DEBUG] FeedManager managers:', this.managers);
+        console.log('[DEBUG] FeedManager managers:', Object.keys(this.managers || {}));
+        
+        // ContentTypeValidator is now imported directly as an ES module
+        console.log('[DEBUG] ContentTypeValidator is available via ES module import');
+        
         this.setupEventListeners();
+        
+        // Check if ValidationUIManager is available after initialization
+        console.log('[FeedManager] After initialization, managers:', Object.keys(this.managers || {}));
+        if (this.managers.validationUIManager) {
+            console.log('[FeedManager] ValidationUIManager available after initialization:', this.managers.validationUIManager);
+            console.log('[FeedManager] ValidationUIManager.markIssueAsFixed available:',
+                typeof this.managers.validationUIManager.markIssueAsFixed === 'function');
+        } else {
+            console.log('[FeedManager] ValidationUIManager NOT available after initialization');
+        }
     }
 
     setupEventListeners() {
@@ -153,20 +181,38 @@ class FeedManager {
                         console.log(`[FeedManager] Field "${fieldName}" (Row ${rowIndex}) met length reqs (${currentLength}). Notifying UI Manager.`);
                         
                         // Check if all fields in the row are valid before removing the needs-fix class
+                        console.log(`[FeedManager] Checking if all fields in row ${rowIndex} are valid...`);
                         const invalidFields = row.querySelectorAll('.editable-field.under-minimum, .editable-field.over-limit');
+                        console.log(`[FeedManager] Invalid fields in row ${rowIndex}: ${invalidFields.length}`);
+                        
                         if (invalidFields.length === 0) {
+                            console.log(`[FeedManager] All fields in row ${rowIndex} are valid. Updating UI...`);
                             row.classList.remove('needs-fix'); // Remove the persistent yellow highlight
                             row.classList.remove('validation-focus'); // Remove the validation focus marker
                             row.classList.add('fix-complete'); // Add temporary green success highlight
                             
                             // Notify ValidationUIManager to remove the issue from the panel
                             // Try to get the latest reference to validationUIManager from the managers object
+                            console.log(`[FeedManager] Attempting to get ValidationUIManager...`);
+                            console.log(`[FeedManager] this.managers:`, Object.keys(this.managers || {}));
+                            
                             const validationUIManager = this.managers.validationUIManager;
+                            console.log(`[FeedManager] validationUIManager available:`, !!validationUIManager);
+                            
+                            if (validationUIManager) {
+                                console.log(`[FeedManager] ValidationUIManager methods:`,
+                                    Object.getOwnPropertyNames(Object.getPrototypeOf(validationUIManager)));
+                                console.log(`[FeedManager] validationUIManager.markIssueAsFixed available:`,
+                                    typeof validationUIManager.markIssueAsFixed === 'function');
+                            }
+                            
                             if (validationUIManager && typeof validationUIManager.markIssueAsFixed === 'function') {
                                 console.log(`[FeedManager] Notifying UI Manager to fix offerId: ${offerId}, field: ${fieldName}`);
-                                validationUIManager.markIssueAsFixed(offerId, fieldName);
+                                const result = validationUIManager.markIssueAsFixed(offerId, fieldName);
+                                console.log(`[FeedManager] markIssueAsFixed result: ${result}`);
                             } else {
-                                console.warn("ValidationUIManager or markIssueAsFixed method not available to notify.");
+                                console.warn("[FeedManager] ValidationUIManager or markIssueAsFixed method not available to notify.");
+                                console.log("[FeedManager] managers:", Object.keys(this.managers || {}));
                             }
                             
                             // Clean up UI
@@ -188,90 +234,309 @@ class FeedManager {
         }
     }
 
+    /**
+     * Initializes or refreshes the feed status content element reference
+     */
+    initFeedStatusContent() {
+        // Use the StatusManager to initialize the feed status content
+        if (this.managers.statusManager) {
+            this.managers.statusManager.initStatusContent();
+        } else {
+            console.error('[DEBUG] StatusManager not available for initializing feed status content');
+        }
+    }
+
     async handlePreview() {
         console.log('[DEBUG] ==================== PREVIEW FEED BUTTON CLICKED ====================');
         console.log('[DEBUG] handlePreview called');
         console.log('[DEBUG] this in handlePreview:', this);
         console.log('[DEBUG] this.elements in handlePreview:', this.elements);
+        
+        // Initialize feed status content element
+        this.initFeedStatusContent();
         const { fileInput } = this.elements;
         console.log('[DEBUG] fileInput:', fileInput);
         console.log('[DEBUG] fileInput.files:', fileInput?.files);
         
         // Ensure managers exist before destructuring
-        const loadingManager = this.managers.loadingManager || {
-            showLoading: (msg) => {
-                console.log('Loading:', msg);
-                document.body.classList.add('is-loading');
-            },
-            hideLoading: () => {
-                console.log('Hide Loading');
-                document.body.classList.remove('is-loading');
-            }
-        };
-        const errorManager = this.managers.errorManager || {
-            showError: (msg) => { console.error("Error:", msg); alert(`Error: ${msg}`); },
-            showSuccess: (msg, duration) => {
-                console.log("Success:", msg);
-                // Create a temporary success message
-                const successMessage = document.createElement('div');
-                successMessage.className = 'success-message';
-                successMessage.textContent = msg;
-                document.body.appendChild(successMessage);
-                setTimeout(() => {
-                    successMessage.classList.add('show');
+        // Ensure all required managers are available with fallbacks if needed
+        if (!this.managers.loadingManager) {
+            this.managers.loadingManager = {
+                showLoading: (msg) => {
+                    console.log('Loading:', msg);
+                    document.body.classList.add('is-loading');
+                },
+                hideLoading: () => {
+                    console.log('Hide Loading');
+                    document.body.classList.remove('is-loading');
+                }
+            };
+        }
+        
+        if (!this.managers.errorManager) {
+            this.managers.errorManager = {
+                showError: (msg) => { console.error("Error:", msg); alert(`Error: ${msg}`); },
+                showSuccess: (msg, duration) => {
+                    console.log("Success:", msg);
+                    // Create a temporary success message
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'success-message';
+                    successMessage.textContent = msg;
+                    document.body.appendChild(successMessage);
                     setTimeout(() => {
-                        successMessage.classList.remove('show');
+                        successMessage.classList.add('show');
                         setTimeout(() => {
-                            if (successMessage.parentNode) {
-                                document.body.removeChild(successMessage);
+                            successMessage.classList.remove('show');
+                            setTimeout(() => {
+                                if (successMessage.parentNode) {
+                                    document.body.removeChild(successMessage);
+                                }
+                            }, 300);
+                        }, duration || 2000);
+                    }, 100);
+                },
+                showWarning: (msg, duration) => {
+                    console.warn("Warning:", msg);
+                    // Fallback if showWarning is not available
+                    const warningMessage = document.createElement('div');
+                    warningMessage.className = 'warning-message';
+                    warningMessage.textContent = msg;
+                    warningMessage.style.backgroundColor = '#fff3cd';
+                    warningMessage.style.color = '#856404';
+                    warningMessage.style.borderColor = '#ffeeba';
+                    document.body.appendChild(warningMessage);
+                    setTimeout(() => {
+                        warningMessage.classList.add('fade-out');
+                        setTimeout(() => {
+                            if (warningMessage.parentNode) {
+                                document.body.removeChild(warningMessage);
                             }
                         }, 300);
-                    }, duration || 2000);
-                }, 100);
-            }
-        };
-        const monitor = this.managers.monitor || { logOperation: ()=>{}, logError: console.error };
-        const searchManager = this.managers.searchManager;
+                    }, duration || 5000);
+                }
+            };
+        }
+        
+        if (!this.managers.monitor) {
+            this.managers.monitor = { logOperation: ()=>{}, logError: console.error };
+        }
         
         console.log('[DEBUG] Managers:', this.managers);
 
         try {
-            monitor.logOperation('preview', 'started');
+            this.managers.monitor.logOperation('preview', 'started');
 
             if (!fileInput || !fileInput.files || !fileInput.files[0]) {
                 console.log('[DEBUG] No file selected');
-                errorManager.showError('Please select a file first');
-                monitor.logOperation('preview', 'failed', { reason: 'no_file' });
+                this.managers.errorManager.showError('Please select a file first');
+                this.managers.monitor.logOperation('preview', 'failed', { reason: 'no_file' });
                 return;
             }
             
             console.log('[DEBUG] File selected:', fileInput.files[0].name);
 
-            loadingManager.showLoading('Processing feed...');
+            this.managers.loadingManager.showLoading('Processing feed...');
+            
+            // Clear feed status area
+            if (this.managers.statusManager) {
+                this.managers.statusManager.addInfo('Processing feed...');
+            }
 
             const file = fileInput.files[0];
             const csvText = await this.readFileAsText(file);
-            const data = this.parseCSV(csvText);
-
-            await this.displayPreview(data);
-
-            // Update search columns after display
-            if (searchManager && typeof searchManager.updateSearchColumns === 'function') {
-                searchManager.updateSearchColumns();
-            } else {
-                 console.warn("SearchManager not available or missing updateSearchColumns method.");
+            
+            try {
+                // Use the CSVParser module instead of the internal parseCSV method
+                console.log('[DEBUG] Using CSVParser module to parse CSV');
+                
+                // ContentTypeValidator is now imported directly
+                console.log('[DEBUG] Using ContentTypeValidator from ES module import');
+                
+                // Create a new CSVParser instance with required headers
+                const csvParser = new CSVParser({
+                    requiredHeaders: ['id', 'title', 'description', 'link', 'image_link']
+                });
+                
+                // Parse the CSV text using the CSVParser module with ContentTypeValidator
+                const { data, errors, warnings } = csvParser.parse(csvText, ContentTypeValidator);
+                
+                // Store warnings for later use (same as the original implementation)
+                this.lastParseWarnings = warnings;
+                
+                // If there are errors, throw an exception with details (similar to original implementation)
+                if (errors && errors.length > 0) {
+                    const errorMessage = errors.map(e => e.message).join('\n');
+                    const error = new Error(errorMessage);
+                    error.details = { errors, warnings };
+                    throw error;
+                }
+                
+                // Clear feed status before displaying preview
+                if (this.managers.statusManager) {
+                    this.managers.statusManager.clearStatus();
+                }
+                
+                // Use the FeedDisplayManager to display the preview
+                if (this.managers.displayManager) {
+                    await this.managers.displayManager.displayPreview(data);
+                    
+                    // Update the offerIdToRowIndexMap from the display manager
+                    this.offerIdToRowIndexMap = this.managers.displayManager.getOfferIdToRowIndexMap();
+                } else {
+                    console.error('[DEBUG] DisplayManager not available for displaying preview');
+                    return;
+                }
+                
+                // Show success message in feed status area
+                if (this.managers.statusManager) {
+                    this.managers.statusManager.addSuccess(`Feed loaded successfully with ${data.length} products`);
+                }
+                
+                // Show warnings if any were generated during parsing
+                if (this.lastParseWarnings && this.lastParseWarnings.length > 0) {
+                    // Group warnings by type for more concise display
+                    const warningsByType = {};
+                    this.lastParseWarnings.forEach(warning => {
+                        if (!warningsByType[warning.type]) {
+                            warningsByType[warning.type] = [];
+                        }
+                        warningsByType[warning.type].push(warning);
+                    });
+                    
+                    // Create a user-friendly warning message
+                    let warningMessage = `Feed loaded with ${this.lastParseWarnings.length} potential issues:\n`;
+                    
+                    if (warningsByType.too_many_columns || warningsByType.too_few_columns) {
+                        const inconsistentRows = [
+                            ...(warningsByType.too_many_columns || []),
+                            ...(warningsByType.too_few_columns || [])
+                        ];
+                        if (inconsistentRows.length <= 3) {
+                            warningMessage += `- Inconsistent columns in rows: ${inconsistentRows.map(w => w.row).join(', ')}\n`;
+                        } else {
+                            warningMessage += `- Inconsistent columns in ${inconsistentRows.length} rows\n`;
+                        }
+                    }
+                    
+                    if (warningsByType.unclosed_quote) {
+                        warningMessage += `- Unclosed quotation marks detected in ${warningsByType.unclosed_quote.length} rows\n`;
+                    }
+                    
+                    if (warningsByType.empty_required_fields) {
+                        warningMessage += `- Missing required values in ${warningsByType.empty_required_fields.length} rows\n`;
+                    }
+                    
+                    if (warningsByType.missing_headers_warning) {
+                        warningMessage += `- ${warningsByType.missing_headers_warning[0].message}\n`;
+                    }
+                    
+                    // Add content type warnings if any
+                    if (warningsByType.content_type_issues) {
+                        warningMessage += `- Content type issues detected in ${warningsByType.content_type_issues.length} rows\n`;
+                        
+                        // If there are only a few issues, show details
+                        if (warningsByType.content_type_issues.length <= 3) {
+                            warningsByType.content_type_issues.forEach(warning => {
+                                warningMessage += `  - Row ${warning.row}: ${warning.issues.map(issue =>
+                                    `${issue.field} ${issue.message}`).join(', ')}\n`;
+                            });
+                        }
+                        
+                        // Add summary to feed status area
+                        if (this.managers.statusManager) {
+                            this.managers.statusManager.addWarning(`Content type issues detected in ${warningsByType.content_type_issues.length} rows. See details in Feed Status area above.`);
+                        }
+                        
+                        // Group issues by type for a more organized summary
+                        const issuesByType = {};
+                        warningsByType.content_type_issues.forEach(warning => {
+                            warning.issues.forEach(issue => {
+                                const key = `${issue.field} ${issue.message}`;
+                                if (!issuesByType[key]) {
+                                    issuesByType[key] = 0;
+                                }
+                                issuesByType[key]++;
+                            });
+                        });
+                        
+                        // Add issue summary to feed status
+                        if (this.managers.statusManager) {
+                            Object.entries(issuesByType).forEach(([issue, count]) => {
+                                this.managers.statusManager.addWarning(`${count} instances of: ${issue}`);
+                            });
+                        }
+                    }
+                    
+                    // Show the warning to the user
+                    this.managers.errorManager.showWarning(warningMessage, 8000); // Show for longer duration
+                }
+                
+                // Update search columns after display
+                if (this.managers.searchManager && typeof this.managers.searchManager.updateSearchColumns === 'function') {
+                    this.managers.searchManager.updateSearchColumns();
+                } else {
+                    console.warn("SearchManager not available or missing updateSearchColumns method.");
+                }
+                
+                this.managers.monitor.logOperation('preview', 'completed', { products: data.length, fileName: file.name });
+                this.managers.errorManager.showSuccess(`Preview loaded for ${file.name}`, 2000);
+                
+            } catch (parseError) {
+                console.error('[DEBUG] CSV parsing error:', parseError);
+                
+                // Handle structured error with details
+                if (parseError.details) {
+                    const { errors, warnings } = parseError.details;
+                    
+                    // Log all errors and warnings
+                    errors.forEach(err => console.error('[DEBUG] Error:', err.message));
+                    warnings.forEach(warn => console.warn('[DEBUG] Warning:', warn.message));
+                    
+                    // Create a user-friendly error message
+                    let errorMessage = 'Failed to preview file:\n';
+                    
+                    errors.forEach(err => {
+                        errorMessage += `- ${err.message}\n`;
+                    });
+                    
+                    // Add suggestions based on error types
+                    errorMessage += '\nSuggestions:\n';
+                    
+                    if (errors.some(e => e.type === 'empty_feed')) {
+                        errorMessage += '- Ensure your CSV file contains data rows\n';
+                    }
+                    
+                    if (errors.some(e => e.type === 'invalid_headers')) {
+                        errorMessage += '- Check that your CSV has a valid header row\n';
+                    }
+                    
+                    if (errors.some(e => e.type === 'missing_headers')) {
+                        const missingHeaders = errors.find(e => e.type === 'missing_headers').missingHeaders;
+                        errorMessage += `- Add required headers: ${missingHeaders.join(', ')}\n`;
+                    }
+                    
+                    if (errors.some(e => e.type === 'no_data_rows')) {
+                        errorMessage += '- Add product data rows to your CSV\n';
+                    }
+                    
+                    this.managers.errorManager.showError(errorMessage);
+                } else {
+                    // Fall back to simple error message for unstructured errors
+                    this.managers.errorManager.showError(`Failed to preview file: ${parseError.message}. Please check the format.`);
+                }
+                
+                this.managers.monitor.logError(parseError, 'parseCSV');
+                this.managers.monitor.logOperation('preview', 'failed', { reason: 'parse_error' });
+                return;
             }
-
-            monitor.logOperation('preview', 'completed', { products: data.length, fileName: file.name });
-            errorManager.showSuccess(`Preview loaded for ${file.name}`, 2000);
 
         } catch (error) {
             console.log('[DEBUG] Error in handlePreview:', error);
-            monitor.logError(error, 'handlePreview');
-            errorManager.showError(`Failed to preview file: ${error.message}. Please check the format.`);
+            this.managers.monitor.logError(error, 'handlePreview');
+            this.managers.errorManager.showError(`Failed to preview file: ${error.message}. Please check the format.`);
         } finally {
             console.log('[DEBUG] handlePreview completed');
-            loadingManager.hideLoading();
+            this.managers.loadingManager.hideLoading();
         }
     }
 
@@ -306,60 +571,115 @@ class FeedManager {
         });
     }
 
-    parseCSV(csvText) {
-        console.log('[DEBUG] ==================== PARSING CSV ====================');
-        console.log('[DEBUG] parseCSV called with text length:', csvText ? csvText.length : 0);
-        
-        if (!csvText || !csvText.trim()) {
-            console.error('[DEBUG] CSV text is empty or only whitespace');
-            return [];
-        }
-        
-        const lines = csvText.split(/[\r\n]+/).filter(line => line.trim());
-        console.log('[DEBUG] CSV contains', lines.length, 'non-empty lines');
-        
-        if (lines.length < 1) {
-            console.error('[DEBUG] CSV file appears empty or has no header row');
-            throw new Error("CSV file appears empty or has no header row.");
-        }
-        
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').trim());
-        console.log('[DEBUG] CSV headers:', headers);
-        
-        if (headers.length === 0 || headers.every(h => !h)) {
-            console.error('[DEBUG] Could not parse headers from CSV');
-            throw new Error("Could not parse headers from CSV.");
-        }
-        
-        const data = [];
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i]; if (!line.trim()) continue;
-            const values = []; let currentVal = ''; let inQuotes = false;
-            for (let j = 0; j < line.length; j++) {
-                const char = line[j];
-                if (char === '"') { if (inQuotes && line[j+1] === '"') { currentVal += '"'; j++; } else { inQuotes = !inQuotes; } }
-                else if (char === ',' && !inQuotes) { values.push(currentVal); currentVal = ''; }
-                else { currentVal += char; }
+    // The parseCSV method has been replaced by the CSVParser module
+
+    /**
+     * Handles editable field input events
+     * @param {Event} event - The input event
+     */
+    handleFieldEdit(event) {
+        // Check if the target is an editable field
+        if (event.target.classList.contains('editable-field')) {
+            const fieldName = event.target.dataset.field;
+            const row = event.target.closest('tr');
+            
+            if (!row) {
+                console.warn('[FeedManager] Could not find parent row for field:', event.target);
+                return;
             }
-            values.push(currentVal);
-            if (values.length > headers.length) { console.warn(`Row ${i+1} truncated.`); values.length = headers.length; }
-            else if (values.length < headers.length) { console.warn(`Row ${i+1} padded.`); while (values.length < headers.length) values.push(''); }
-            const row = {}; let hasValue = false;
-            headers.forEach((header, index) => { if (header) { const value = (values[index] || '').trim(); row[header] = value; if (value) hasValue = true; } });
-            if (hasValue) data.push(row);
+            
+            const rowIndex = row.dataset.row;
+            const offerId = row.dataset.offerId;
+            
+            if (!offerId) {
+                console.warn(`[FeedManager] Cannot notify UI Manager: Missing offerId on row ${rowIndex}`);
+                return;
+            }
+            
+            // Define validation rules based on field name
+            const isDescription = fieldName === 'description';
+            const minLength = isDescription ? 90 : 30; // Title min is 30
+            const maxLength = isDescription ? 5000 : 150; // Title max is 150
+            
+            const content = event.target.textContent || '';
+            const currentLength = content.length;
+            
+            // Apply validation classes based on content length
+            if (currentLength < minLength) {
+                // Under minimum length - show error state
+                event.target.classList.add('under-minimum');
+                event.target.classList.remove('over-limit');
+                
+                // Only add needs-fix class if the row has been specifically navigated to
+                if (row.classList.contains('validation-focus')) {
+                    row.classList.add('needs-fix'); // Add persistent yellow highlight
+                }
+                
+                console.log(`[FeedManager] Field "${fieldName}" (Row ${rowIndex}) does NOT meet requirements. Length: ${currentLength}/${minLength}`);
+            } else if (currentLength > maxLength) {
+                // Over maximum length - show error state
+                event.target.classList.remove('under-minimum');
+                event.target.classList.add('over-limit');
+                
+                // Only add needs-fix class if the row has been specifically navigated to
+                if (row.classList.contains('validation-focus')) {
+                    row.classList.add('needs-fix'); // Add persistent yellow highlight
+                }
+                
+                console.log(`[FeedManager] Field "${fieldName}" (Row ${rowIndex}) exceeds maximum length. Length: ${currentLength}/${maxLength}`);
+            } else {
+                // Valid length - show success state
+                event.target.classList.remove('under-minimum');
+                event.target.classList.remove('over-limit');
+                
+                // Apply green background to valid fields
+                event.target.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
+                event.target.style.borderColor = '#28a745';
+                
+                console.log(`[FeedManager] Field "${fieldName}" (Row ${rowIndex}) met length reqs (${currentLength}). Notifying UI Manager.`);
+                
+                // Check if all fields in the row are valid before removing the needs-fix class
+                const invalidFields = row.querySelectorAll('.editable-field.under-minimum, .editable-field.over-limit');
+                if (invalidFields.length === 0) {
+                    row.classList.remove('needs-fix'); // Remove the persistent yellow highlight
+                    row.classList.remove('validation-focus'); // Remove the validation focus marker
+                    row.classList.add('fix-complete'); // Add temporary green success highlight
+                    
+                    // Notify ValidationUIManager to remove the issue from the panel
+                    // Try to get the latest reference to validationUIManager from the managers object
+                    const validationUIManager = this.managers.validationUIManager;
+                    if (validationUIManager && typeof validationUIManager.markIssueAsFixed === 'function') {
+                        console.log(`[FeedManager] Notifying UI Manager to fix offerId: ${offerId}, field: ${fieldName}`);
+                        validationUIManager.markIssueAsFixed(offerId, fieldName);
+                    } else {
+                        console.warn("ValidationUIManager or markIssueAsFixed method not available to notify.");
+                    }
+                    
+                    // Clean up UI
+                    setTimeout(() => row.classList.remove('fix-complete'), 1000);
+                }
+            }
+            
+            // Update the character count display to match validation state
+            const charCountDisplay = event.target.nextElementSibling;
+            if (charCountDisplay && charCountDisplay.classList.contains('char-count')) {
+                charCountDisplay.textContent = `${currentLength} / ${minLength}`;
+                charCountDisplay.style.color = (currentLength < minLength || currentLength > maxLength) ? '#dc3545' : '#28a745';
+            }
         }
-        
-        if (data.length === 0) {
-            console.warn("[DEBUG] CSV parsed, but no data rows found.");
-        } else {
-            console.log('[DEBUG] Successfully parsed CSV data with', data.length, 'rows');
-            console.log('[DEBUG] First row sample:', data[0]);
-        }
-        
-        return data;
     }
 
+    /**
+     * Displays the preview using the FeedDisplayManager
+     * @param {Array<object>} data - The data to display
+     * @returns {Promise<void>}
+     */
     async displayPreview(data) {
+        if (this.managers.displayManager) {
+            return this.managers.displayManager.displayPreview(data);
+        } else {
+            console.error('[DEBUG] DisplayManager not available for displaying preview');
+        }
         console.log('[DEBUG] ==================== DISPLAY PREVIEW CALLED ====================');
         console.log('[DEBUG] displayPreview called with data:', data ? `${data.length} rows` : 'no data');
         
@@ -487,15 +807,41 @@ class FeedManager {
         }, 500); // Delay to ensure DOM is fully rendered
     }
 
+    /**
+     * Sanitizes text using the FeedDisplayManager
+     * @param {string} text - The text to sanitize
+     * @returns {string} - The sanitized text
+     */
     sanitizeText(text) {
-         if (typeof text !== 'string') return '';
-        return text.normalize('NFKD')
-            .replace(/[\u2022]/g, '•').replace(/[\u2013\u2014]/g, '-')
-            .replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'")
-            .replace(/\s+/g, ' ').trim();
+        if (this.managers.displayManager) {
+            return this.managers.displayManager.sanitizeText(text);
+        } else {
+            // Fallback implementation if displayManager is not available
+            if (typeof text !== 'string') return '';
+            return text.normalize('NFKD')
+                .replace(/[\u2022]/g, '•').replace(/[\u2013\u2014]/g, '-')
+                .replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'")
+                .replace(/\s+/g, ' ').trim();
+        }
     }
 
+    /**
+     * Creates an editable cell using the FeedDisplayManager
+     * @param {string} content - The cell content
+     * @param {string} type - The field type
+     * @param {number} rowIndex - The row index
+     * @returns {HTMLElement} - The cell element
+     */
     createEditableCell(content, type, rowIndex) {
+        if (this.managers.displayManager) {
+            return this.managers.displayManager.createEditableCell(content, type, rowIndex);
+        } else {
+            console.error('[DEBUG] DisplayManager not available for creating editable cell');
+            // Return a basic cell as fallback
+            const cell = document.createElement('td');
+            cell.textContent = content;
+            return cell;
+        }
         const cell = document.createElement('td');
         const field = document.createElement('div');
         field.className = `editable-field ${type}-field`;
@@ -610,52 +956,42 @@ class FeedManager {
     }
 
     /**
-     * Extracts the current data from the preview table, including any inline edits.
-     * @returns {Array<object>} Array of product data objects reflecting the current state.
+     * Gets the corrected table data using the FeedDisplayManager
+     * @returns {Array<object>} - The corrected table data
      */
-    getCorrectedTableData() { // Renamed from getTableData
-        const table = this.elements.previewContentContainer?.querySelector('table.preview-table');
-        if (!table) { console.warn('No data table found for getCorrectedTableData'); return []; }
-        const headerCells = Array.from(table.querySelectorAll('thead th'));
-        const headers = headerCells.map(th => th.textContent.trim());
-        const rows = Array.from(table.querySelectorAll('tbody tr'));
-        return rows.map(row => {
-            const cells = Array.from(row.querySelectorAll('td'));
-            const rowData = {};
-            headers.forEach((headerName, index) => {
-                 if (headerName) {
-                    const cell = cells[index];
-                    if (cell) {
-                        const editableField = cell.querySelector('.editable-field');
-                        const value = editableField ? editableField.textContent.trim() : cell.textContent.trim();
-                        rowData[headerName] = value;
-                    } else { rowData[headerName] = ''; }
-                 }
-            });
-            return rowData;
-        }).filter(row => Object.values(row).some(val => val !== ''));
+    getCorrectedTableData() {
+        if (this.managers.displayManager) {
+            return this.managers.displayManager.getCorrectedTableData();
+        } else {
+            console.error('[DEBUG] DisplayManager not available for getting corrected table data');
+            return [];
+        }
     }
 
-   /**
-    * Placeholder method to get applied corrections.
-    * Needs proper implementation to track user edits or compare original vs current data.
-    * @returns {Array} An array representing the corrections (format TBD).
-    */
-   getAppliedCorrections() {
-       console.warn("FeedManager.getAppliedCorrections() is a placeholder and needs implementation.");
-       // TODO: Implement logic to track or diff changes made in the editable table.
-       // This might involve storing the original data or tracking edit events.
-       // The return format needs to be defined based on how templates will store/apply rules.
-       // Example possible return format: [{ offerId: '123', field: 'title', newValue: 'New Corrected Title' }, ...]
-       return []; // Return empty array for now
-   }
+    /**
+     * Gets the applied corrections using the FeedDisplayManager
+     * @returns {Array} - The applied corrections
+     */
+    getAppliedCorrections() {
+        if (this.managers.displayManager) {
+            return this.managers.displayManager.getAppliedCorrections();
+        } else {
+            console.error('[DEBUG] DisplayManager not available for getting applied corrections');
+            return [];
+        }
+    }
 
-     /**
-      * Scrolls the preview table to a specific row and highlights it for fixing.
-      * @param {number} rowIndex - The 1-based index of the row to navigate to.
-      * @param {string} [fieldToFocus] - Optional field name to focus within the row.
-      */
-     navigateToRow(rowIndex, fieldToFocus = null) {
+    /**
+     * Navigates to a specific row using the FeedDisplayManager
+     * @param {number} rowIndex - The row index
+     * @param {string} [fieldToFocus] - Optional field to focus
+     */
+    navigateToRow(rowIndex, fieldToFocus = null) {
+        if (this.managers.displayManager) {
+            this.managers.displayManager.navigateToRow(rowIndex, fieldToFocus);
+        } else {
+            console.error('[DEBUG] DisplayManager not available for navigating to row');
+        }
         // Ensure the Feed Preview tab is active first
         const feedTabButton = document.querySelector('.tab-button[data-tab="feed"]');
         const feedTabPanel = document.getElementById('feed-tab');
@@ -789,11 +1125,15 @@ class FeedManager {
    // The monitorFieldForFix method has been removed.
    // Validation fixes are now handled by the delegated event listener in setupEventListeners.
    
-   /**
-    * Initializes and sets up the floating horizontal scroll bar
-    * that stays fixed at the top of the viewport during vertical scrolling.
-    */
-   initFloatingScrollBar() {
+    /**
+     * Initializes the floating scroll bar using the FeedDisplayManager
+     */
+    initFloatingScrollBar() {
+        if (this.managers.displayManager) {
+            this.managers.displayManager.initFloatingScrollBar();
+        } else {
+            console.error('[DEBUG] DisplayManager not available for initializing floating scroll bar');
+        }
        console.log('[DEBUG] ==================== INIT FLOATING SCROLL BAR ====================');
        
        // Get references to the elements
@@ -940,6 +1280,12 @@ class FeedManager {
        updateThumbWidth();
        updateThumbPosition();
    }
+    /**
+     * Updates the feed status area with messages
+     * @param {string} message - The message to display
+     * @param {string} type - The type of message: 'info', 'warning', 'error', or 'success'
+     */
+    // The updateFeedStatus method has been moved to the StatusManager module
 }
 
 // Make globally available

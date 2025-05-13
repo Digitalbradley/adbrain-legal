@@ -1,0 +1,178 @@
+/**
+ * app.js - Main entry point for ES modules
+ *
+ * This file serves as the entry point for ES modules in the AdBrain Feed Manager extension.
+ * It imports the necessary modules and makes them available to the rest of the application.
+ */
+
+// Import utility modules first (these have the fewest dependencies)
+import utilityModules from './utility_modules.js';
+console.log('[DEBUG] app.js: Imported utility modules');
+
+// Import debug and basic modules
+import debug from './debug.js';
+console.log('[DEBUG] app.js: Imported debug module');
+
+import { debounce } from './popup_utils.js';
+console.log('[DEBUG] app.js: Imported debounce from popup_utils.js');
+
+import StatusManager from './status_manager.js';
+console.log('[DEBUG] app.js: Imported StatusManager module');
+
+// Import validation libraries
+import validationLibraries from './validation_libraries.js';
+console.log('[DEBUG] app.js: Imported validation libraries');
+
+// Import mock modules
+import mockModules from './mock_modules.js';
+console.log('[DEBUG] app.js: Imported mock modules');
+
+// Import content type validator and feed display manager
+import ContentTypeValidator from './content_type_validator.js';
+console.log('[DEBUG] app.js: Imported ContentTypeValidator module');
+
+import FeedDisplayManager from './feed_display_manager.js';
+console.log('[DEBUG] app.js: Imported FeedDisplayManager module');
+
+// Import search manager
+import SearchManager from './search_manager.js';
+console.log('[DEBUG] app.js: Imported SearchManager module');
+
+// Import validation modules
+import validationModules from './validation_modules.js';
+console.log('[DEBUG] app.js: Imported validation modules');
+
+// Import manager modules
+import managerModules from './manager_modules.js';
+console.log('[DEBUG] app.js: Imported manager modules');
+
+// Import remaining modules
+import remainingModules from './remaining_modules.js';
+console.log('[DEBUG] app.js: Imported remaining modules');
+
+// Import direct validation modules
+import directValidationModules from './direct_validation_modules.js';
+console.log('[DEBUG] app.js: Imported direct validation modules');
+
+// Extract individual validation modules for easier access
+const {
+  ValidationFirebaseHandler,
+  ValidationIssueManager,
+  ValidationPanelManager,
+  ValidationUIManager
+} = validationModules;
+
+// Extract individual manager modules for easier access
+const {
+  FeedCoordinator,
+  SettingsManager,
+  BulkActionsManager
+} = managerModules;
+
+console.log('[DEBUG] app.js: Extracted ValidationFirebaseHandler:', typeof ValidationFirebaseHandler);
+console.log('[DEBUG] app.js: Extracted ValidationIssueManager:', typeof ValidationIssueManager);
+console.log('[DEBUG] app.js: Extracted ValidationPanelManager:', typeof ValidationPanelManager);
+console.log('[DEBUG] app.js: Extracted ValidationUIManager:', typeof ValidationUIManager);
+console.log('[DEBUG] app.js: Extracted FeedCoordinator:', typeof FeedCoordinator);
+console.log('[DEBUG] app.js: Extracted SettingsManager:', typeof SettingsManager);
+console.log('[DEBUG] app.js: Extracted BulkActionsManager:', typeof BulkActionsManager);
+
+// Create the modules object
+// Use a different name for the local variable to avoid redeclaration issues
+const moduleExports = {
+  // Basic modules
+  debug,
+  StatusManager,
+  debounce,
+  
+  // Feature modules
+  FeedDisplayManager,
+  ContentTypeValidator,
+  SearchManager,
+  
+  // Include validation modules from validationModules
+  ValidationFirebaseHandler,
+  ValidationIssueManager,
+  ValidationPanelManager,
+  ValidationUIManager,
+  
+  // Include manager modules from managerModules
+  FeedCoordinator,
+  SettingsManager,
+  BulkActionsManager,
+  
+  // Include module groups
+  utilityModules,
+  validationLibraries,
+  mockModules,
+  remainingModules,
+  directValidationModules
+};
+
+// Log the moduleExports object
+console.log('[DEBUG] app.js: moduleExports created with keys:', Object.keys(moduleExports));
+console.log('[DEBUG] app.js: ValidationFirebaseHandler in moduleExports:', typeof moduleExports.ValidationFirebaseHandler);
+console.log('[DEBUG] app.js: ValidationIssueManager in moduleExports:', typeof moduleExports.ValidationIssueManager);
+console.log('[DEBUG] app.js: ValidationPanelManager in moduleExports:', typeof moduleExports.ValidationPanelManager);
+console.log('[DEBUG] app.js: ValidationUIManager in moduleExports:', typeof moduleExports.ValidationUIManager);
+console.log('[DEBUG] app.js: FeedCoordinator in moduleExports:', typeof moduleExports.FeedCoordinator);
+console.log('[DEBUG] app.js: SettingsManager in moduleExports:', typeof moduleExports.SettingsManager);
+console.log('[DEBUG] app.js: BulkActionsManager in moduleExports:', typeof moduleExports.BulkActionsManager);
+
+// Log that app.js has loaded
+console.log('[DEBUG] app.js: ES Module entry point loaded - Phase 5.2');
+
+// Immediately assign to window to ensure it's available
+// This needs to happen before any async operations
+window.AppModules = moduleExports;
+
+// No need to explicitly assign validation modules to window here
+// They are already assigned in validation_modules.js
+console.log('[DEBUG] app.js: Validation modules should be available on window via validation_modules.js');
+// No need to explicitly assign manager modules to window here
+// They are already assigned in manager_modules.js
+console.log('[DEBUG] app.js: Manager modules should be available on window via manager_modules.js');
+
+// Log the window.AppModules object
+console.log('[DEBUG] app.js: window.AppModules assigned with keys:', Object.keys(window.AppModules));
+console.log('[DEBUG] app.js: ValidationFirebaseHandler in window.AppModules:', typeof window.AppModules.ValidationFirebaseHandler);
+console.log('[DEBUG] app.js: ValidationIssueManager in window.AppModules:', typeof window.AppModules.ValidationIssueManager);
+console.log('[DEBUG] app.js: ValidationPanelManager in window.AppModules:', typeof window.AppModules.ValidationPanelManager);
+console.log('[DEBUG] app.js: ValidationUIManager in window.AppModules:', typeof window.AppModules.ValidationUIManager);
+
+// Log the window object directly
+console.log('[DEBUG] app.js: ValidationFirebaseHandler in window:', typeof window.ValidationFirebaseHandler);
+console.log('[DEBUG] app.js: ValidationIssueManager in window:', typeof window.ValidationIssueManager);
+console.log('[DEBUG] app.js: ValidationPanelManager in window:', typeof window.ValidationPanelManager);
+console.log('[DEBUG] app.js: ValidationUIManager in window:', typeof window.ValidationUIManager);
+console.log('[DEBUG] app.js: FeedCoordinator in window:', typeof window.FeedCoordinator);
+console.log('[DEBUG] app.js: SettingsManager in window:', typeof window.SettingsManager);
+console.log('[DEBUG] app.js: BulkActionsManager in window:', typeof window.BulkActionsManager);
+
+// Log that AppModules is available
+console.log('[DEBUG] app.js: AppModules assigned to window:', Object.keys(window.AppModules));
+
+// Initialize any modules that need immediate initialization
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('[DEBUG] app.js: DOMContentLoaded event fired');
+  
+  // Verify AppModules is still available
+  console.log('[DEBUG] app.js: AppModules available in DOMContentLoaded:',
+              window.AppModules ? Object.keys(window.AppModules) : 'NOT AVAILABLE');
+  
+  // Initialize StatusManager
+  try {
+    const statusManager = new StatusManager();
+    
+    // Add a test status message to verify functionality
+    statusManager.addInfo('ES Module system initialized successfully');
+    
+    // Log that initialization is complete
+    console.log('[DEBUG] app.js: StatusManager initialization complete');
+  } catch (error) {
+    console.error('[DEBUG] app.js: Error initializing StatusManager:', error);
+  }
+});
+
+// Export the modules object as the default export
+export default moduleExports;

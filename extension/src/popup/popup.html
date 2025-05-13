@@ -51,13 +51,6 @@
             padding: 15px;
             overflow-y: auto;
         }
-        
-        /* Make the highlighted row stand out more */
-        .highlighted-row {
-            background-color: #ffeb3b !important;
-            border: 2px solid #f44336 !important;
-            box-shadow: 0 0 10px 5px rgba(255, 235, 59, 0.8);
-        }
     </style>
 </head>
 <body>
@@ -127,6 +120,14 @@
                         <div class="search-status"></div> <!-- ADDED for SearchManager status messages -->
                     </div>
 
+                    <!-- Feed Status Area -->
+                    <div id="feedStatusArea" class="feed-status-area">
+                        <h3>Feed Status</h3>
+                        <div id="feedStatusContent" class="feed-status-content">
+                            <div class="status-message">No feed loaded. Upload a CSV file to begin.</div>
+                        </div>
+                    </div>
+                    
                     <!-- Existing Preview Content -->
                     <div id="previewContent"></div>
 
@@ -454,8 +455,7 @@
 <!-- Load the loading indicator module first -->
 <script src="loading-indicator.js"></script>
 
-<!-- Debug script -->
-<script src="debug.js"></script>
+<!-- Debug script is now loaded via app.js as an ES module -->
 
 <!-- Load the direct preview script for backup functionality -->
 <script src="direct_preview.js"></script>
@@ -470,6 +470,28 @@
 <script src="direct-validation-ui.js"></script>
 <script src="direct-validation-history.js"></script>
 <script src="direct-validation-core.js"></script>
+
+<!-- Direct Test Script for Content Type Validation -->
+<script src="content_type_test.js"></script>
+
+<!-- ES Module Entry Point -->
+<!-- Load utility modules first -->
+<script src="popup_utils.js"></script>
+
+<!-- Load DOM Manager and other modules -->
+<script src="dom_manager.js"></script>
+<script src="validation_panel_manager.js"></script>
+<script src="validation_issue_manager.js"></script>
+<script src="validation_firebase_handler.js"></script>
+<script src="validation_ui_manager.js"></script>
+<script src="csv_parser.js"></script>
+<script src="status_manager.js"></script>
+<script src="feed_display_manager.js"></script>
+<script src="search_manager.js"></script>
+<script src="feed_coordinator.js"></script>
+<script src="feed_manager.js"></script>
+<script src="popup_simplified.js"></script>
+<!-- Removed app.js as it's causing conflicts -->
 
 <!-- Script Loading Manager -->
 <script src="script_loader.js"></script>

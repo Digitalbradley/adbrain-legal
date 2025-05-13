@@ -73,7 +73,7 @@ class PopupManager {
             statusBarManager: null, // Placeholder
             searchManager: null,    // Placeholder
             validationUIManager: null, // Placeholder
-            feedManager: null,       // Placeholder
+            feedCoordinator: null,   // Placeholder
             settingsManager: null,   // Placeholder
             bulkActionsManager: null, // Placeholder
             customRuleValidator: null // Placeholder
@@ -166,9 +166,9 @@ if (typeof ValidationUIManager !== 'undefined') {
     managers.validationUIManager = this.validationUIManager;
     console.log('[DEBUG] ValidationUIManager initialized and added to managers');
 } else { console.error("ValidationUIManager class not found!"); }
-// Ensure FeedManager class is loaded AFTER ValidationUIManager
-if (typeof FeedManager !== 'undefined') {
-    console.log('[DEBUG] Initializing FeedManager');
+// Ensure FeedCoordinator class is loaded AFTER ValidationUIManager
+if (typeof FeedCoordinator !== 'undefined') {
+    console.log('[DEBUG] Initializing FeedCoordinator');
     console.log('[DEBUG] fileInputEl:', fileInputEl);
     console.log('[DEBUG] previewButtonEl:', previewButtonEl);
     console.log('[DEBUG] previewContentContainer:', this.previewContentContainer);
@@ -178,14 +178,14 @@ if (typeof FeedManager !== 'undefined') {
     if (!previewButtonEl) console.error("previewButtonEl is null or undefined");
     if (!this.previewContentContainer) console.error("previewContentContainer is null or undefined");
     
-    this.feedManager = new FeedManager(
+    this.feedCoordinator = new FeedCoordinator(
         { fileInput: fileInputEl, previewButton: previewButtonEl, previewContentContainer: this.previewContentContainer },
         managers
     );
-    managers.feedManager = this.feedManager;
-    console.log('[DEBUG] FeedManager initialized and added to managers');
+    managers.feedCoordinator = this.feedCoordinator;
+    console.log('[DEBUG] FeedCoordinator initialized and added to managers');
 } else {
-    console.error("FeedManager class not found!");
+    console.error("FeedCoordinator class not found!");
 }
 
         // Ensure SettingsManager class is loaded
@@ -210,23 +210,23 @@ if (typeof FeedManager !== 'undefined') {
 
         // --- Set Cross-References ---
         // Ensure managers have references they need
-        if (this.validationUIManager && this.feedManager) {
+        if (this.validationUIManager && this.feedCoordinator) {
             console.log('[DEBUG] Setting cross-references between managers');
-            this.validationUIManager.managers.feedManager = this.feedManager;
-            console.log('[DEBUG] Set feedManager reference in validationUIManager');
+            this.validationUIManager.managers.feedManager = this.feedCoordinator;
+            console.log('[DEBUG] Set feedCoordinator reference in validationUIManager');
             
-            // Also ensure FeedManager has reference to ValidationUIManager
-            if (this.feedManager.managers) {
-                this.feedManager.managers.validationUIManager = this.validationUIManager;
-                console.log('[DEBUG] Set validationUIManager reference in feedManager');
+            // Also ensure FeedCoordinator has reference to ValidationUIManager
+            if (this.feedCoordinator.managers) {
+                this.feedCoordinator.managers.validationUIManager = this.validationUIManager;
+                console.log('[DEBUG] Set validationUIManager reference in feedCoordinator');
                 console.log('[DEBUG] Cross-references set successfully');
             } else {
-                console.error('[DEBUG] FeedManager.managers is undefined or null');
+                console.error('[DEBUG] FeedCoordinator.managers is undefined or null');
             }
         } else {
-            console.error('[DEBUG] Cannot set cross-references: validationUIManager or feedManager is missing');
+            console.error('[DEBUG] Cannot set cross-references: validationUIManager or feedCoordinator is missing');
             console.log('[DEBUG] validationUIManager:', this.validationUIManager);
-            console.log('[DEBUG] feedManager:', this.feedManager);
+            console.log('[DEBUG] feedCoordinator:', this.feedCoordinator);
         }
         // Add other necessary cross-references if managers depend on each other directly
 
@@ -325,14 +325,14 @@ if (typeof FeedManager !== 'undefined') {
         
         // Add a direct event listener to the Preview Feed button as a backup
         const previewButton = document.getElementById('previewFeed');
-        if (previewButton && this.feedManager) {
+        if (previewButton && this.feedCoordinator) {
             console.log('[DEBUG] Adding direct event listener to Preview Feed button as backup');
             previewButton.addEventListener('click', () => {
                 console.log('[DEBUG] Preview Feed button clicked directly from PopupManager');
-                if (this.feedManager && typeof this.feedManager.handlePreview === 'function') {
-                    this.feedManager.handlePreview();
+                if (this.feedCoordinator && typeof this.feedCoordinator.handlePreview === 'function') {
+                    this.feedCoordinator.handlePreview();
                 } else {
-                    console.error('[DEBUG] FeedManager or handlePreview method not available');
+                    console.error('[DEBUG] FeedCoordinator or handlePreview method not available');
                 }
             });
         }
@@ -466,7 +466,7 @@ if (typeof FeedManager !== 'undefined') {
         
         // Create a managers object with all the managers needed for tab functionality
         const managers = {
-            feedManager: this.feedManager,
+            feedManager: this.feedCoordinator, // Keep feedManager key for backward compatibility
             validationUIManager: this.validationUIManager,
             bulkActionsManager: this.bulkActionsManager,
             settingsManager: this.settingsManager,
@@ -525,9 +525,9 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[DEBUG] Adding direct event listener to Preview Feed button in DOMContentLoaded');
         previewButton.addEventListener('click', () => {
             console.log('[DEBUG] Preview Feed button clicked from DOMContentLoaded handler');
-            // Try to find FeedManager instance
-            if (window.feedManagerInstance && typeof window.feedManagerInstance.handlePreview === 'function') {
-                window.feedManagerInstance.handlePreview();
+            // Try to find FeedCoordinator instance
+            if (window.feedCoordinatorInstance && typeof window.feedCoordinatorInstance.handlePreview === 'function') {
+                window.feedCoordinatorInstance.handlePreview();
             } else {
                 console.log('[DEBUG] No global feedManagerInstance found, trying to read file directly');
                 // Fallback implementation
@@ -566,10 +566,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const popupManager = new PopupManager();
         console.log("PopupManager instantiated successfully");
         
-        // Store FeedManager instance globally for backup access
-        if (popupManager.feedManager) {
-            window.feedManagerInstance = popupManager.feedManager;
-            console.log('[DEBUG] FeedManager instance stored globally');
+        // Store FeedCoordinator instance globally for backup access
+        if (popupManager.feedCoordinator) {
+            window.feedCoordinatorInstance = popupManager.feedCoordinator;
+            console.log('[DEBUG] FeedCoordinator instance stored globally');
+            
+            // Also store as feedManagerInstance for backward compatibility
+            window.feedManagerInstance = popupManager.feedCoordinator;
         }
         
         // Store ValidationUIManager instance globally for backup access

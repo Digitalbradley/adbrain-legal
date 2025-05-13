@@ -5,7 +5,7 @@
 class ValidationPanelManager {
     /**
      * @param {object} managers - Other manager instances.
-     * @param {FeedManager} managers.feedManager - For navigating to rows.
+     * @param {FeedCoordinator} managers.feedCoordinator - For navigating to rows.
      * @param {ErrorManager} managers.errorManager - For displaying errors.
      * @param {LoadingManager} managers.loadingManager - For showing loading states.
      * @param {MonitorManager} managers.monitor - For logging operations.
@@ -14,8 +14,8 @@ class ValidationPanelManager {
         this.managers = managers;
         this.activeValidationPanel = null; // Track the currently open panel
         
-        if (!this.managers.feedManager) {
-            console.warn("ValidationPanelManager: FeedManager not provided, row navigation might be limited.");
+        if (!this.managers.feedCoordinator) {
+            console.warn("ValidationPanelManager: FeedCoordinator not provided, row navigation might be limited.");
         }
         
         if (!this.managers.errorManager) {
@@ -237,13 +237,13 @@ class ValidationPanelManager {
                     console.log(`[DEBUG] ValidationPanelManager: Go to Row clicked. Row: ${rowIndex}, Field to focus: ${fieldToFix}`);
                     // --- END ADDED ---
 
-                    // Delegate navigation to FeedManager if available
-                    if (this.managers.feedManager && typeof this.managers.feedManager.navigateToRow === 'function') {
-                        console.log(`[DEBUG] ValidationPanelManager: Calling feedManager.navigateToRow(${rowIndex}, ${fieldToFix})`);
-                        this.managers.feedManager.navigateToRow(rowIndex, fieldToFix); // Pass fieldToFix
+                    // Delegate navigation to FeedCoordinator if available
+                    if (this.managers.feedCoordinator && typeof this.managers.feedCoordinator.navigateToRow === 'function') {
+                        console.log(`[DEBUG] ValidationPanelManager: Calling feedCoordinator.navigateToRow(${rowIndex}, ${fieldToFix})`);
+                        this.managers.feedCoordinator.navigateToRow(rowIndex, fieldToFix); // Pass fieldToFix
                     } else {
-                        // Fallback or alternative navigation logic if FeedManager doesn't handle it
-                        console.warn('[DEBUG] ValidationPanelManager: FeedManager not available for navigation. Scrolling generically.');
+                        // Fallback or alternative navigation logic if FeedCoordinator doesn't handle it
+                        console.warn('[DEBUG] ValidationPanelManager: FeedCoordinator not available for navigation. Scrolling generically.');
                         // No local fallback version - we rely on FeedManager
                     }
                 } else {
@@ -425,5 +425,8 @@ class ValidationPanelManager {
     }
 }
 
-// Make globally available (consider modules later)
+// Make globally available for backward compatibility
 window.ValidationPanelManager = ValidationPanelManager;
+
+// Default export for easier importing
+// No default export needed for regular scripts

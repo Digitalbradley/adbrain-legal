@@ -5,15 +5,15 @@
 class ValidationIssueManager {
     /**
      * @param {object} managers - Other manager instances.
-     * @param {FeedManager} managers.feedManager - For accessing feed data.
+     * @param {FeedCoordinator} managers.feedCoordinator - For accessing feed data.
      * @param {ErrorManager} managers.errorManager - For displaying errors.
      */
     constructor(managers) {
         this.managers = managers;
         this.offerIdToValidatorRowIndexMap = {}; // Map offerId to the rowIndex provided by the validator
         
-        if (!this.managers.feedManager) {
-            console.warn("ValidationIssueManager: FeedManager not provided, issue management might be limited.");
+        if (!this.managers.feedCoordinator) {
+            console.warn("ValidationIssueManager: FeedCoordinator not provided, issue management might be limited.");
         }
         
         if (!this.managers.errorManager) {
@@ -54,15 +54,15 @@ class ValidationIssueManager {
      * @param {object} results - The validation results object to update
      */
     addMissingValidationIssues(results) {
-        if (!this.managers.feedManager) {
-            console.warn('[ValidationIssueManager] Cannot check for missing validation issues: FeedManager not available');
+        if (!this.managers.feedCoordinator) {
+            console.warn('[ValidationIssueManager] Cannot check for missing validation issues: FeedCoordinator not available');
             return;
         }
         
         console.log('[ValidationIssueManager] Checking for missing validation issues in feed preview table');
         
         // Get all editable fields from the feed preview table
-        const container = this.managers.feedManager.elements.previewContentContainer;
+        const container = this.managers.feedCoordinator.elements.previewContentContainer;
         if (!container) {
             console.warn('[ValidationIssueManager] Cannot check for missing validation issues: previewContentContainer not available');
             return;
@@ -184,7 +184,7 @@ class ValidationIssueManager {
         console.log(`[ValidationIssueManager] Received fix notification for Offer ID: ${offerId}, Field: ${fieldName}`);
         
         // First, verify that the field actually meets requirements
-        const container = this.managers.feedManager?.elements.previewContentContainer;
+        const container = this.managers.feedCoordinator?.elements.previewContentContainer;
         if (container) {
             const row = container.querySelector(`tr[data-offer-id="${offerId}"]`);
             if (row) {
@@ -224,12 +224,33 @@ class ValidationIssueManager {
         if (feedId && validationResults[feedId]) {
             const results = validationResults[feedId];
             if (results && results.issues) {
+                // Log the issues before filtering
+                console.log(`[ValidationIssueManager] Issues before filtering (${results.issues.length}):`,
+                    results.issues.map(issue => ({
+                        offerId: issue.offerId || issue['Offer ID'],
+                        field: issue.field,
+                        message: issue.message
+                    }))
+                );
+                
                 // Remove the issue from the stored results
+                const originalLength = results.issues.length;
                 results.issues = results.issues.filter(issue => {
                     const issueOfferId = issue.offerId || issue['Offer ID'];
-                    return !(issueOfferId === offerId && issue.field === fieldName);
+                    const shouldKeep = !(issueOfferId === offerId && issue.field === fieldName);
+                    return shouldKeep;
                 });
-                console.log(`[ValidationIssueManager] Updated stored validation results for feed ${feedId}. Now has ${results.issues.length} issues.`);
+                
+                // Log the issues after filtering
+                console.log(`[ValidationIssueManager] Issues after filtering (${results.issues.length}):`,
+                    results.issues.map(issue => ({
+                        offerId: issue.offerId || issue['Offer ID'],
+                        field: issue.field,
+                        message: issue.message
+                    }))
+                );
+                
+                console.log(`[ValidationIssueManager] Removed ${originalLength - results.issues.length} issues. Updated stored validation results for feed ${feedId}.`);
                 return true;
             }
         }
@@ -238,5 +259,7 @@ class ValidationIssueManager {
     }
 }
 
-// Make globally available (consider modules later)
+// Make globally available for backward compatibility
 window.ValidationIssueManager = ValidationIssueManager;
+
+// No default export needed for regular scripts

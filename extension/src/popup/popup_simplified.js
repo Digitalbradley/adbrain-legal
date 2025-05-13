@@ -1,17 +1,5 @@
 // Simplified version of popup.js to fix the Preview Feed functionality
-
-// Utility function for debouncing
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
+// Use global debounce function from popup_utils.js
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[DEBUG] Simplified popup.js loaded');
@@ -26,6 +14,38 @@ document.addEventListener('DOMContentLoaded', () => {
         previewButtonEl,
         previewContentContainer
     });
+    
+    // Set up tab switching
+    const setupTabs = () => {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabPanels = document.querySelectorAll('.tab-panel');
+        
+        console.log('[DEBUG] Setting up tab switching with buttons:', tabButtons.length, 'panels:', tabPanels.length);
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                console.log('[DEBUG] Tab clicked:', tabId);
+                
+                // Remove active class from all buttons and panels
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabPanels.forEach(panel => panel.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding panel
+                button.classList.add('active');
+                const panel = document.getElementById(`${tabId}-tab`);
+                if (panel) {
+                    panel.classList.add('active');
+                    console.log('[DEBUG] Activated panel:', tabId);
+                } else {
+                    console.error('[DEBUG] Tab panel not found for ID:', tabId);
+                }
+            });
+        });
+    };
+    
+    // Initialize tabs
+    setupTabs();
     
     // Set up event listeners
     if (fileInputEl) {
@@ -44,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Add a delegated event listener for all editable fields
     if (previewContentContainer) {
-        previewContentContainer.addEventListener('input', debounce((event) => {
+        previewContentContainer.addEventListener('input', window.debounce((event) => {
             // Check if the target is an editable field
             if (event.target.classList.contains('editable-field')) {
                 const fieldName = event.target.dataset.field;
@@ -107,6 +127,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         row.classList.remove('validation-focus'); // Remove the validation focus marker
                         row.classList.add('fix-complete'); // Add temporary green success highlight
                         
+                        // Remove row highlighting classes directly
+                        row.classList.remove('row-highlight');
+                        row.classList.remove('highlighted-row');
+                        
+                        // Notify validation systems to remove the issue from the panel
+                        // First try the DirectValidationUI system
+                        if (window.DirectValidationUI && typeof window.DirectValidationUI.markIssueAsFixed === 'function') {
+                            console.log(`[FeedManager] Notifying DirectValidationUI to fix offerId: ${offerId}, field: ${fieldName}`);
+                            window.DirectValidationUI.markIssueAsFixed(offerId, fieldName);
+                        }
+                        
+                        // Then try the ValidationUIManager system
+                        if (window.validationUIManager && typeof window.validationUIManager.markIssueAsFixed === 'function') {
+                            console.log(`[FeedManager] Notifying ValidationUIManager to fix offerId: ${offerId}, field: ${fieldName}`);
+                            window.validationUIManager.markIssueAsFixed(offerId, fieldName);
+                        }
+                        
                         // Clean up UI
                         setTimeout(() => row.classList.remove('fix-complete'), 1000);
                     }
@@ -147,6 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Initialize the floating scroll bar
             initFloatingScrollBar();
+            
+            // Reinitialize tab switching to ensure it works after floating scroll bar is set up
+            setupTabs();
             
             // Show success message
             const successMessage = document.createElement('div');
@@ -348,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 100);
         
         // This listener is for updating the character count display and validation state
-        field.addEventListener('input', debounce(updateDisplay, 300));
+        field.addEventListener('input', window.debounce(updateDisplay, 300));
         
         return cell;
     }
@@ -499,10 +539,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const scrollThumb = document.querySelector('.scroll-thumb');
         
         if (!floatingScroll || !dataContainer || !scrollThumb) {
-            console.warn('Floating scroll elements not found');
+            console.warn('Floating scroll elements not found:', {
+                floatingScroll,
+                dataContainer,
+                scrollThumb
+            });
+            
+            // Try to find the elements with more specific selectors
+            const specificDataContainer = document.getElementById('feed-tab');
+            
+            if (floatingScroll && specificDataContainer && scrollThumb) {
+                console.log('Found elements with specific selectors, using these instead');
+                initScrollWithElements(floatingScroll, specificDataContainer, scrollThumb);
+                return;
+            }
+            
             return;
         }
         
+        initScrollWithElements(floatingScroll, dataContainer, scrollThumb);
+    }
+    
+    function initScrollWithElements(floatingScroll, dataContainer, scrollThumb) {
         // Show the floating scroll
         floatingScroll.style.display = 'block';
         
@@ -513,6 +571,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const ratio = containerWidth / contentWidth;
             const thumbWidth = Math.max(40, Math.floor(ratio * containerWidth));
             scrollThumb.style.width = `${thumbWidth}px`;
+            
+            // Only show the scroll bar if there's content to scroll
+            if (contentWidth <= containerWidth) {
+                floatingScroll.style.display = 'none';
+            } else {
+                floatingScroll.style.display = 'block';
+            }
         };
         
         // Update thumb position based on scroll position
@@ -521,6 +586,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const contentWidth = dataContainer.scrollWidth;
             const scrollLeft = dataContainer.scrollLeft;
             const maxScroll = contentWidth - containerWidth;
+            
+            // Avoid division by zero
+            if (maxScroll <= 0) return;
+            
             const scrollRatio = scrollLeft / maxScroll;
             const trackWidth = floatingScroll.querySelector('.scroll-track').clientWidth;
             const thumbWidth = scrollThumb.clientWidth;
@@ -550,25 +619,35 @@ document.addEventListener('DOMContentLoaded', () => {
             startX = e.clientX;
             startLeft = parseInt(scrollThumb.style.left || '0', 10);
             document.body.classList.add('no-select'); // Prevent text selection while dragging
+            
+            // Capture the initial mousedown as a mousemove event too
+            // This ensures immediate response when clicking on the thumb
+            onMouseMove(e);
+            
+            // Prevent default to avoid text selection
+            e.preventDefault();
         });
         
         const onMouseMove = (e) => {
             if (!isDragging) return;
             
-            const deltaX = e.clientX - startX;
-            const trackWidth = floatingScroll.querySelector('.scroll-track').clientWidth;
-            const thumbWidth = scrollThumb.clientWidth;
-            const maxThumbPosition = trackWidth - thumbWidth;
-            
-            let newLeft = Math.max(0, Math.min(startLeft + deltaX, maxThumbPosition));
-            scrollThumb.style.left = `${newLeft}px`;
-            
-            // Update container scroll position
-            const scrollRatio = newLeft / maxThumbPosition;
-            const containerWidth = dataContainer.clientWidth;
-            const contentWidth = dataContainer.scrollWidth;
-            const maxScroll = contentWidth - containerWidth;
-            dataContainer.scrollLeft = scrollRatio * maxScroll;
+            // Use requestAnimationFrame for smoother updates
+            requestAnimationFrame(() => {
+                const deltaX = e.clientX - startX;
+                const trackWidth = floatingScroll.querySelector('.scroll-track').clientWidth;
+                const thumbWidth = scrollThumb.clientWidth;
+                const maxThumbPosition = trackWidth - thumbWidth;
+                
+                let newLeft = Math.max(0, Math.min(startLeft + deltaX, maxThumbPosition));
+                scrollThumb.style.left = `${newLeft}px`;
+                
+                // Update container scroll position
+                const scrollRatio = newLeft / maxThumbPosition;
+                const containerWidth = dataContainer.clientWidth;
+                const contentWidth = dataContainer.scrollWidth;
+                const maxScroll = contentWidth - containerWidth;
+                dataContainer.scrollLeft = scrollRatio * maxScroll;
+            });
         };
         
         const onMouseUp = () => {
@@ -583,22 +662,39 @@ document.addEventListener('DOMContentLoaded', () => {
         floatingScroll.querySelector('.scroll-track').addEventListener('click', (e) => {
             if (e.target === scrollThumb) return; // Ignore clicks on the thumb itself
             
-            const trackRect = e.currentTarget.getBoundingClientRect();
-            const clickPosition = e.clientX - trackRect.left;
-            const trackWidth = e.currentTarget.clientWidth;
-            const thumbWidth = scrollThumb.clientWidth;
-            const maxThumbPosition = trackWidth - thumbWidth;
-            
-            // Calculate new thumb position (centered on click)
-            let newLeft = Math.max(0, Math.min(clickPosition - (thumbWidth / 2), maxThumbPosition));
-            scrollThumb.style.left = `${newLeft}px`;
-            
-            // Update container scroll position
-            const scrollRatio = newLeft / maxThumbPosition;
-            const containerWidth = dataContainer.clientWidth;
-            const contentWidth = dataContainer.scrollWidth;
-            const maxScroll = contentWidth - containerWidth;
-            dataContainer.scrollLeft = scrollRatio * maxScroll;
+            // Use requestAnimationFrame for smoother updates
+            requestAnimationFrame(() => {
+                const trackRect = e.currentTarget.getBoundingClientRect();
+                const clickPosition = e.clientX - trackRect.left;
+                const trackWidth = e.currentTarget.clientWidth;
+                const thumbWidth = scrollThumb.clientWidth;
+                const maxThumbPosition = trackWidth - thumbWidth;
+                
+                // Calculate new thumb position (centered on click)
+                let newLeft = Math.max(0, Math.min(clickPosition - (thumbWidth / 2), maxThumbPosition));
+                
+                // Add a smooth transition for the thumb
+                scrollThumb.style.transition = 'left 0.2s ease-out';
+                scrollThumb.style.left = `${newLeft}px`;
+                
+                // Update container scroll position with smooth behavior
+                const scrollRatio = newLeft / maxThumbPosition;
+                const containerWidth = dataContainer.clientWidth;
+                const contentWidth = dataContainer.scrollWidth;
+                const maxScroll = contentWidth - containerWidth;
+                
+                // Use smooth scrolling behavior
+                dataContainer.style.scrollBehavior = 'smooth';
+                dataContainer.scrollLeft = scrollRatio * maxScroll;
+                
+                // Reset transition after animation completes
+                setTimeout(() => {
+                    scrollThumb.style.transition = '';
+                    dataContainer.style.scrollBehavior = '';
+                }, 200);
+            });
         });
+        
+        console.log('[DEBUG] Floating scroll bar initialized successfully');
     }
-});
+}); // End of DOMContentLoaded event listener

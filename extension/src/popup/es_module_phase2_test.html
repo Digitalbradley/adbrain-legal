@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ES Module Phase 2 Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .test-section {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+    }
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px 0;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      min-height: 20px;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .console-output {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>ES Module Phase 2 Test</h1>
+  <p>This page tests the ES module implementation for Phase 2 of the migration.</p>
+  
+  <div class="test-section">
+    <h2>Module Availability Test</h2>
+    <button id="testModuleAvailability">Test Module Availability</button>
+    <div id="moduleAvailabilityResult" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>FeedDisplayManager Test</h2>
+    <button id="testFeedDisplayManager">Test FeedDisplayManager</button>
+    <div id="feedDisplayManagerContainer">
+      <div id="previewContentContainer"></div>
+    </div>
+    <div id="feedDisplayManagerResult" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>ContentTypeValidator Test</h2>
+    <div>
+      <label for="fieldType">Field Type:</label>
+      <select id="fieldType">
+        <option value="title">Title</option>
+        <option value="description">Description</option>
+        <option value="link">Link</option>
+        <option value="price">Price</option>
+        <option value="image_link">Image Link</option>
+      </select>
+    </div>
+    <div>
+      <label for="fieldValue">Field Value:</label>
+      <input type="text" id="fieldValue" value="Short">
+    </div>
+    <button id="testContentTypeValidator">Test ContentTypeValidator</button>
+    <div id="contentTypeValidatorResult" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>SearchManager Test</h2>
+    <div>
+      <input type="text" id="searchInput" placeholder="Search...">
+      <select id="searchColumn">
+        <option value="all">All Columns</option>
+        <option value="title">Title</option>
+        <option value="description">Description</option>
+      </select>
+      <select id="searchType">
+        <option value="contains">Contains</option>
+        <option value="equals">Equals</option>
+        <option value="startsWith">Starts With</option>
+      </select>
+    </div>
+    <button id="testSearchManager">Test SearchManager</button>
+    <div id="searchManagerResult" class="result"></div>
+  </div>
+  
+  <div class="console-output" id="consoleOutput">
+    <div>Console output will appear here...</div>
+  </div>
+  
+  <script>
+    // Function to log to both console and the page
+    function log(message) {
+      console.log(message);
+      const consoleOutput = document.getElementById('consoleOutput');
+      const logEntry = document.createElement('div');
+      logEntry.textContent = message;
+      consoleOutput.appendChild(logEntry);
+      
+      // Auto-scroll to bottom
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+    
+    // Log immediately
+    log('Test page loaded');
+    
+    // Check if AppModules is available immediately
+    if (window.AppModules) {
+      log('AppModules immediately available: ' + Object.keys(window.AppModules).join(', '));
+    } else {
+      log('AppModules not immediately available, will check again after a delay');
+    }
+    
+    // Wait a moment to ensure app.js has loaded
+    setTimeout(() => {
+      log('Checking for AppModules after delay...');
+      
+      // Check if AppModules is available after delay
+      if (window.AppModules) {
+        log('AppModules available after delay: ' + Object.keys(window.AppModules).join(', '));
+      } else {
+        log('ERROR: AppModules not detected after delay. ES Module system is not working properly.');
+      }
+    }, 500);
+  </script>
+  
+  <script type="module">
+    // Import the app.js module
+    import * as app from './app.js';
+    
+    // Test data
+    const testData = [
+      { id: 'product-1', title: 'Test Product 1', description: 'Description 1', price: '19.99 USD' },
+      { id: 'product-2', title: 'Test Product 2', description: 'Description 2', price: '29.99 USD' },
+      { id: 'product-3', title: 'Another Product', description: 'Different description', price: '39.99 USD' }
+    ];
+    
+    // Module availability test
+    document.getElementById('testModuleAvailability').addEventListener('click', () => {
+      const resultElement = document.getElementById('moduleAvailabilityResult');
+      
+      try {
+        const modules = window.AppModules;
+        let html = '<ul>';
+        
+        // Check each module
+        html += `<li>debug: ${typeof modules.debug === 'object' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}</li>`;
+        html += `<li>StatusManager: ${typeof modules.StatusManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}</li>`;
+        html += `<li>debounce: ${typeof modules.debounce === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}</li>`;
+        html += `<li>FeedDisplayManager: ${typeof modules.FeedDisplayManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}</li>`;
+        html += `<li>ContentTypeValidator: ${typeof modules.ContentTypeValidator === 'object' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}</li>`;
+        html += `<li>SearchManager: ${typeof modules.SearchManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}</li>`;
+        
+        html += '</ul>';
+        resultElement.innerHTML = html;
+        log('Module availability test completed');
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+        log('ERROR in module availability test: ' + error.message);
+      }
+    });
+    
+    // FeedDisplayManager test
+    document.getElementById('testFeedDisplayManager').addEventListener('click', () => {
+      const resultElement = document.getElementById('feedDisplayManagerResult');
+      const containerElement = document.getElementById('previewContentContainer');
+      
+      try {
+        const FeedDisplayManager = window.AppModules.FeedDisplayManager;
+        log('Testing FeedDisplayManager...');
+        
+        // Create a new FeedDisplayManager instance
+        const displayManager = new FeedDisplayManager({
+          previewContentContainer: containerElement
+        });
+        
+        // Display the test data
+        displayManager.displayPreview(testData);
+        
+        resultElement.innerHTML = '<span class="success">FeedDisplayManager test successful</span>';
+        log('FeedDisplayManager test completed successfully');
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+        log('ERROR in FeedDisplayManager test: ' + error.message);
+      }
+    });
+    
+    // ContentTypeValidator test
+    document.getElementById('testContentTypeValidator').addEventListener('click', () => {
+      const resultElement = document.getElementById('contentTypeValidatorResult');
+      
+      try {
+        const ContentTypeValidator = window.AppModules.ContentTypeValidator;
+        log('Testing ContentTypeValidator...');
+        
+        const fieldType = document.getElementById('fieldType').value;
+        const fieldValue = document.getElementById('fieldValue').value;
+        
+        log(`Validating ${fieldType}: "${fieldValue}"`);
+        
+        // Validate the field
+        const issues = ContentTypeValidator.validateField(fieldType, fieldValue);
+        
+        if (issues.length === 0) {
+          resultElement.innerHTML = '<p class="success">No issues found</p>';
+          log('No validation issues found');
+        } else {
+          const groupedIssues = ContentTypeValidator.groupIssuesBySeverity(issues);
+          const fixes = ContentTypeValidator.getSuggestedFixes(issues);
+          
+          log(`Found ${issues.length} validation issues`);
+          
+          let html = '<h4>Issues Found:</h4><ul>';
+          
+          issues.forEach(issue => {
+            html += `<li style="color: ${issue.severity === 'error' ? 'red' : issue.severity === 'warning' ? 'orange' : 'blue'}">${issue.message}</li>`;
+            log(`- ${issue.severity.toUpperCase()}: ${issue.message}`);
+          });
+          
+          html += '</ul>';
+          
+          if (Object.keys(fixes).length > 0) {
+            html += '<h4>Suggested Fixes:</h4><ul>';
+            for (const field in fixes) {
+              html += `<li>${field}: ${fixes[field]}</li>`;
+              log(`- Fix for ${field}: "${fixes[field]}"`);
+            }
+            html += '</ul>';
+          }
+          
+          resultElement.innerHTML = html;
+        }
+        
+        log('ContentTypeValidator test completed successfully');
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+        log('ERROR in ContentTypeValidator test: ' + error.message);
+      }
+    });
+    
+    // SearchManager test
+    document.getElementById('testSearchManager').addEventListener('click', () => {
+      const resultElement = document.getElementById('searchManagerResult');
+      
+      try {
+        const SearchManager = window.AppModules.SearchManager;
+        log('Testing SearchManager...');
+        
+        const searchInput = document.getElementById('searchInput');
+        const searchColumn = document.getElementById('searchColumn');
+        const searchType = document.getElementById('searchType');
+        
+        // Get the search parameters
+        const searchText = searchInput.value;
+        const column = searchColumn.value;
+        const type = searchType.value;
+        
+        log(`Searching for "${searchText}" in ${column} columns using ${type} match type`);
+        
+        // Filter the data
+        let filteredData = testData;
+        
+        if (searchText) {
+          filteredData = testData.filter(item => {
+            // Determine which columns to search
+            const columns = column === 'all' ? ['id', 'title', 'description', 'price'] : [column];
+            
+            // Check if any column matches the search criteria
+            return columns.some(col => {
+              const value = item[col];
+              if (!value) return false;
+              
+              // Apply the search type
+              switch (type) {
+                case 'contains':
+                  return value.toLowerCase().includes(searchText.toLowerCase());
+                case 'equals':
+                  return value.toLowerCase() === searchText.toLowerCase();
+                case 'startsWith':
+                  return value.toLowerCase().startsWith(searchText.toLowerCase());
+                default:
+                  return false;
+              }
+            });
+          });
+        }
+        
+        log(`Found ${filteredData.length} matching items`);
+        
+        // Display the filtered data
+        let html = '<h4>Search Results:</h4><table><tr><th>ID</th><th>Title</th><th>Description</th><th>Price</th></tr>';
+        
+        filteredData.forEach(item => {
+          html += `<tr><td>${item.id}</td><td>${item.title}</td><td>${item.description}</td><td>${item.price}</td></tr>`;
+        });
+        
+        html += '</table>';
+        resultElement.innerHTML = html;
+        
+        log('SearchManager test completed successfully');
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+        log('ERROR in SearchManager test: ' + error.message);
+      }
+    });
+    
+    // Log that the module script has loaded
+    log('ES Module script loaded successfully');
+  </script>
+</body>
+</html>

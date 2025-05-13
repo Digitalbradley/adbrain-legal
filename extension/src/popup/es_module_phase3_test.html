@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ES Module Phase 3 Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .test-section {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+    }
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px 0;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+      min-height: 20px;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .console-output {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>ES Module Phase 3 Test</h1>
+  <p>This page tests the ES module implementation for Phase 3 of the migration.</p>
+  
+  <div class="test-section">
+    <h2>Module Availability Test</h2>
+    <button id="testModuleAvailability">Test Module Availability</button>
+    <div id="moduleAvailabilityResult" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>ValidationFirebaseHandler Test</h2>
+    <button id="testValidationFirebaseHandler">Test ValidationFirebaseHandler</button>
+    <div id="validationFirebaseHandlerResult" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>ValidationIssueManager Test</h2>
+    <button id="testValidationIssueManager">Test ValidationIssueManager</button>
+    <div id="validationIssueManagerResult" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>ValidationPanelManager Test</h2>
+    <button id="testValidationPanelManager">Test ValidationPanelManager</button>
+    <div id="validationPanelManagerResult" class="result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>ValidationUIManager Test</h2>
+    <button id="testValidationUIManager">Test ValidationUIManager</button>
+    <div id="validationUIManagerResult" class="result"></div>
+  </div>
+  
+  <div class="console-output" id="consoleOutput">
+    <div>Console output will appear here...</div>
+  </div>
+  
+  <script>
+    // Function to log to both console and the page
+    function log(message) {
+      console.log(message);
+      const consoleOutput = document.getElementById('consoleOutput');
+      const logEntry = document.createElement('div');
+      logEntry.textContent = message;
+      consoleOutput.appendChild(logEntry);
+      
+      // Auto-scroll to bottom
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+    
+    // Log immediately
+    log('Test page loaded');
+    
+    // Check if AppModules is available immediately
+    if (window.AppModules) {
+      log('AppModules immediately available: ' + Object.keys(window.AppModules).join(', '));
+    } else {
+      log('AppModules not immediately available, will check again after a delay');
+    }
+    
+    // Wait a moment to ensure app.js has loaded
+    setTimeout(() => {
+      log('Checking for AppModules after delay...');
+      
+      // Check if AppModules is available after delay
+      if (window.AppModules) {
+        log('AppModules available after delay: ' + Object.keys(window.AppModules).join(', '));
+        
+        // Log validation modules specifically
+        log('ValidationFirebaseHandler: ' + (typeof window.ValidationFirebaseHandler));
+        log('ValidationIssueManager: ' + (typeof window.ValidationIssueManager));
+        log('ValidationPanelManager: ' + (typeof window.ValidationPanelManager));
+        log('ValidationUIManager: ' + (typeof window.ValidationUIManager));
+        
+        // Also check in AppModules
+        log('ValidationFirebaseHandler in AppModules: ' + (typeof window.AppModules.ValidationFirebaseHandler));
+        log('ValidationIssueManager in AppModules: ' + (typeof window.AppModules.ValidationIssueManager));
+        log('ValidationPanelManager in AppModules: ' + (typeof window.AppModules.ValidationPanelManager));
+        log('ValidationUIManager in AppModules: ' + (typeof window.AppModules.ValidationUIManager));
+      } else {
+        log('ERROR: AppModules not detected after delay. ES Module system is not working properly.');
+      }
+    }, 1000);
+  </script>
+  
+  <script type="module">
+    // Import the validation_modules.js first to ensure validation modules are available
+    import * as validationModules from './validation_modules.js';
+    log('Validation modules imported successfully');
+    
+    // Then import the app.js module
+    import * as app from './app.js';
+    log('App module imported successfully');
+    
+    // Log that all module scripts have loaded
+    log('All ES Module scripts loaded successfully');
+    
+    // Module availability test
+    document.getElementById('testModuleAvailability').addEventListener('click', () => {
+      const resultElement = document.getElementById('moduleAvailabilityResult');
+      
+      try {
+        const modules = window.AppModules;
+        let html = '<ul>';
+        
+        // Check each module in both window.AppModules and window
+        html += `<li>ValidationFirebaseHandler:
+                  AppModules: ${typeof modules.ValidationFirebaseHandler === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'} |
+                  window: ${typeof window.ValidationFirebaseHandler === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}
+                </li>`;
+        html += `<li>ValidationIssueManager:
+                  AppModules: ${typeof modules.ValidationIssueManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'} |
+                  window: ${typeof window.ValidationIssueManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}
+                </li>`;
+        html += `<li>ValidationPanelManager:
+                  AppModules: ${typeof modules.ValidationPanelManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'} |
+                  window: ${typeof window.ValidationPanelManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}
+                </li>`;
+        html += `<li>ValidationUIManager:
+                  AppModules: ${typeof modules.ValidationUIManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'} |
+                  window: ${typeof window.ValidationUIManager === 'function' ? '<span class="success">Available</span>' : '<span class="error">Not available</span>'}
+                </li>`;
+        
+        html += '</ul>';
+        resultElement.innerHTML = html;
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    });
+    
+    // ValidationFirebaseHandler test
+    document.getElementById('testValidationFirebaseHandler').addEventListener('click', () => {
+      const resultElement = document.getElementById('validationFirebaseHandlerResult');
+      
+      try {
+        // Try accessing the module directly from window first, then fall back to AppModules
+        const ValidationFirebaseHandler = window.ValidationFirebaseHandler || window.AppModules.ValidationFirebaseHandler;
+        console.log('ValidationFirebaseHandler type:', typeof ValidationFirebaseHandler);
+        
+        // Create a new ValidationFirebaseHandler instance
+        const handler = new ValidationFirebaseHandler({
+          authManager: { getAuthState: () => ({ firebaseAuthenticated: false }) },
+          errorManager: { showError: (msg) => console.log(`Error: ${msg}`) }
+        });
+        
+        // Test basic functionality
+        resultElement.innerHTML = `
+          <span class="success">ValidationFirebaseHandler instance created successfully</span>
+          <p>Instance properties:</p>
+          <ul>
+            <li>firebaseHandler.managers: ${handler.managers ? 'Present' : 'Missing'}</li>
+            <li>firebaseHandler.saveValidationToFirestore: ${typeof handler.saveValidationToFirestore === 'function' ? 'Function' : 'Missing'}</li>
+            <li>firebaseHandler.loadValidationHistoryFromFirestore: ${typeof handler.loadValidationHistoryFromFirestore === 'function' ? 'Function' : 'Missing'}</li>
+          </ul>
+        `;
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    });
+    
+    // ValidationIssueManager test
+    document.getElementById('testValidationIssueManager').addEventListener('click', () => {
+      const resultElement = document.getElementById('validationIssueManagerResult');
+      
+      try {
+        // Try accessing the module directly from window first, then fall back to AppModules
+        const ValidationIssueManager = window.ValidationIssueManager || window.AppModules.ValidationIssueManager;
+        console.log('ValidationIssueManager type:', typeof ValidationIssueManager);
+        
+        // Create a new ValidationIssueManager instance
+        const issueManager = new ValidationIssueManager({
+          feedCoordinator: {},
+          errorManager: { showError: (msg) => console.log(`Error: ${msg}`) }
+        });
+        
+        // Test basic functionality
+        resultElement.innerHTML = `
+          <span class="success">ValidationIssueManager instance created successfully</span>
+          <p>Instance properties:</p>
+          <ul>
+            <li>issueManager.managers: ${issueManager.managers ? 'Present' : 'Missing'}</li>
+            <li>issueManager.offerIdToValidatorRowIndexMap: ${issueManager.offerIdToValidatorRowIndexMap ? 'Present' : 'Missing'}</li>
+            <li>issueManager.populateOfferIdMap: ${typeof issueManager.populateOfferIdMap === 'function' ? 'Function' : 'Missing'}</li>
+            <li>issueManager.addMissingValidationIssues: ${typeof issueManager.addMissingValidationIssues === 'function' ? 'Function' : 'Missing'}</li>
+            <li>issueManager.markIssueAsFixed: ${typeof issueManager.markIssueAsFixed === 'function' ? 'Function' : 'Missing'}</li>
+          </ul>
+        `;
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    });
+    
+    // ValidationPanelManager test
+    document.getElementById('testValidationPanelManager').addEventListener('click', () => {
+      const resultElement = document.getElementById('validationPanelManagerResult');
+      
+      try {
+        // Try accessing the module directly from window first, then fall back to AppModules
+        const ValidationPanelManager = window.ValidationPanelManager || window.AppModules.ValidationPanelManager;
+        console.log('ValidationPanelManager type:', typeof ValidationPanelManager);
+        
+        // Create a new ValidationPanelManager instance
+        const panelManager = new ValidationPanelManager({
+          feedCoordinator: {},
+          errorManager: { showError: (msg) => console.log(`Error: ${msg}`) }
+        });
+        
+        // Test basic functionality
+        resultElement.innerHTML = `
+          <span class="success">ValidationPanelManager instance created successfully</span>
+          <p>Instance properties:</p>
+          <ul>
+            <li>panelManager.managers: ${panelManager.managers ? 'Present' : 'Missing'}</li>
+            <li>panelManager.activeValidationPanel: ${panelManager.activeValidationPanel !== undefined ? 'Present' : 'Missing'}</li>
+            <li>panelManager.handleViewDetails: ${typeof panelManager.handleViewDetails === 'function' ? 'Function' : 'Missing'}</li>
+            <li>panelManager.createValidationPanel: ${typeof panelManager.createValidationPanel === 'function' ? 'Function' : 'Missing'}</li>
+            <li>panelManager.createAndShowSummaryPanel: ${typeof panelManager.createAndShowSummaryPanel === 'function' ? 'Function' : 'Missing'}</li>
+          </ul>
+        `;
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    });
+    
+    // ValidationUIManager test
+    document.getElementById('testValidationUIManager').addEventListener('click', () => {
+      const resultElement = document.getElementById('validationUIManagerResult');
+      
+      try {
+        // Try accessing the module directly from window first, then fall back to AppModules
+        const ValidationUIManager = window.ValidationUIManager || window.AppModules.ValidationUIManager;
+        console.log('ValidationUIManager type:', typeof ValidationUIManager);
+        
+        // Create a new ValidationUIManager instance with minimal required elements and managers
+        const uiManager = new ValidationUIManager(
+          { historyTableBody: document.createElement('tbody') },
+          { 
+            feedCoordinator: {},
+            errorManager: { showError: (msg) => console.log(`Error: ${msg}`) },
+            authManager: { getAuthState: () => ({ firebaseAuthenticated: false }) }
+          }
+        );
+        
+        // Test basic functionality
+        resultElement.innerHTML = `
+          <span class="success">ValidationUIManager instance created successfully</span>
+          <p>Instance properties:</p>
+          <ul>
+            <li>uiManager.elements: ${uiManager.elements ? 'Present' : 'Missing'}</li>
+            <li>uiManager.managers: ${uiManager.managers ? 'Present' : 'Missing'}</li>
+            <li>uiManager.validationResults: ${uiManager.validationResults ? 'Present' : 'Missing'}</li>
+            <li>uiManager.firebaseHandler: ${uiManager.firebaseHandler ? 'Present' : 'Missing'}</li>
+            <li>uiManager.panelManager: ${uiManager.panelManager ? 'Present' : 'Missing'}</li>
+            <li>uiManager.issueManager: ${uiManager.issueManager ? 'Present' : 'Missing'}</li>
+          </ul>
+        `;
+      } catch (error) {
+        resultElement.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+      }
+    });
+  </script>
+  
+  <script>
+    // Wait for everything to load before enabling the test buttons
+    window.addEventListener('load', () => {
+      log('Window load event fired');
+      
+      // Wait an additional moment to ensure all modules are fully loaded
+      setTimeout(() => {
+        log('All modules should be fully loaded now');
+        
+        // Check window objects again
+        log('Final check - ValidationFirebaseHandler: ' + (typeof window.ValidationFirebaseHandler));
+        log('Final check - ValidationIssueManager: ' + (typeof window.ValidationIssueManager));
+        log('Final check - ValidationPanelManager: ' + (typeof window.ValidationPanelManager));
+        log('Final check - ValidationUIManager: ' + (typeof window.ValidationUIManager));
+      }, 2000);
+    });
+  </script>
+</body>
+</html>
