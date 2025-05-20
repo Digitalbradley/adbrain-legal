@@ -79,6 +79,9 @@ class ManagerFactory {
     initializeDependentManagers() {
         console.log('[DEBUG] ManagerFactory: Initializing dependent managers');
         
+        // Create FeedErrorUIManager
+        this.managers.feedErrorUIManager = this.createFeedErrorUIManager();
+        
         // Create ValidationUIManager
         this.managers.validationUIManager = this.createValidationUIManager();
         
@@ -101,7 +104,7 @@ class ManagerFactory {
     setupCrossReferences() {
         console.log('[DEBUG] ManagerFactory: Setting up cross-references');
         
-        // Set up cross-references between ValidationUIManager and FeedCoordinator
+        // Set up cross-references between managers
         if (this.managers.validationUIManager && this.managers.feedCoordinator) {
             console.log('[DEBUG] Setting cross-references between managers');
             
@@ -109,12 +112,25 @@ class ManagerFactory {
             if (this.managers.validationUIManager.managers) {
                 this.managers.validationUIManager.managers.feedManager = this.managers.feedCoordinator;
                 console.log('[DEBUG] Set feedCoordinator reference in validationUIManager');
+                
+                // Set FeedErrorUIManager reference in ValidationUIManager
+                if (this.managers.feedErrorUIManager) {
+                    this.managers.validationUIManager.managers.feedErrorUIManager = this.managers.feedErrorUIManager;
+                    console.log('[DEBUG] Set feedErrorUIManager reference in validationUIManager');
+                }
             }
             
             // Ensure FeedCoordinator has reference to ValidationUIManager
             if (this.managers.feedCoordinator.managers) {
                 this.managers.feedCoordinator.managers.validationUIManager = this.managers.validationUIManager;
                 console.log('[DEBUG] Set validationUIManager reference in feedCoordinator');
+                
+                // Set FeedErrorUIManager reference in FeedCoordinator
+                if (this.managers.feedErrorUIManager) {
+                    this.managers.feedCoordinator.managers.feedErrorUIManager = this.managers.feedErrorUIManager;
+                    console.log('[DEBUG] Set feedErrorUIManager reference in feedCoordinator');
+                }
+                
                 console.log('[DEBUG] Cross-references set successfully');
             } else {
                 console.error('[DEBUG] FeedCoordinator.managers is undefined or null');
@@ -390,6 +406,50 @@ class ManagerFactory {
             );
         } else { 
             console.error("SettingsManager class not found!"); 
+            return null;
+        }
+    }
+    
+    /**
+     * Creates a FeedErrorUIManager instance
+     * @returns {Object} - A FeedErrorUIManager instance
+     */
+    createFeedErrorUIManager() {
+        if (typeof FeedErrorUIManager !== 'undefined') {
+            console.log('[DEBUG] Initializing FeedErrorUIManager');
+            
+            // Check if the required elements exist
+            const feedStatusArea = this.elements.feedStatusArea;
+            const feedStatusContent = this.elements.feedStatusContent;
+            
+            console.log('[DEBUG] FeedErrorUIManager elements:', {
+                feedStatusArea: !!feedStatusArea,
+                feedStatusContent: !!feedStatusContent
+            });
+            
+            if (!feedStatusArea) {
+                console.warn('[DEBUG] feedStatusArea element not found, using document.getElementById');
+                this.elements.feedStatusArea = document.getElementById('feedStatusArea');
+            }
+            
+            if (!feedStatusContent) {
+                console.warn('[DEBUG] feedStatusContent element not found, using document.getElementById');
+                this.elements.feedStatusContent = document.getElementById('feedStatusContent');
+            }
+            
+            // Create the FeedErrorUIManager with the elements
+            const manager = new FeedErrorUIManager(
+                {
+                    feedStatusArea: this.elements.feedStatusArea,
+                    feedStatusContent: this.elements.feedStatusContent
+                },
+                this.managers
+            );
+            
+            console.log('[DEBUG] FeedErrorUIManager created successfully');
+            return manager;
+        } else {
+            console.log("FeedErrorUIManager class not found, skipping initialization");
             return null;
         }
     }

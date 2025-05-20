@@ -358,14 +358,16 @@ const contentTypeValidators = {
   
   availability: {
     validate: (value) => {
+      // Convert underscores to spaces for validation
+      const normalizedValue = value.toLowerCase().replace(/_/g, ' ');
       const validValues = ['in stock', 'out of stock', 'preorder', 'backorder'];
-      return validValues.includes(value.toLowerCase());
+      return validValues.includes(normalizedValue);
     },
     message: 'should be one of: "in stock", "out of stock", "preorder", "backorder"',
     severity: SEVERITY.ERROR,
     fix: (value) => {
       // Try to fix common availability issues
-      const lowerValue = value.toLowerCase();
+      const lowerValue = value.toLowerCase().replace(/_/g, ' ');
       
       if (lowerValue.includes('stock')) {
         return lowerValue.includes('out') ? 'out of stock' : 'in stock';
@@ -415,7 +417,21 @@ const contentTypeValidators = {
   gtin: {
     validate: (value) => {
       // GTIN can be 8, 12, 13, or 14 digits
-      return /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(value);
+      if (/^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(value)) {
+        return true;
+      }
+      
+      // Try to parse scientific notation
+      try {
+        const numValue = Number(value);
+        if (isNaN(numValue)) return false;
+        
+        // Convert to string and remove decimal point
+        const strValue = numValue.toString().replace('.', '');
+        return /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(strValue);
+      } catch (e) {
+        return false;
+      }
     },
     message: 'should be a valid GTIN (8, 12, 13, or 14 digits)',
     severity: SEVERITY.WARNING,
@@ -426,6 +442,19 @@ const contentTypeValidators = {
       // If we have a valid length, return it
       if ([8, 12, 13, 14].includes(digits.length)) {
         return digits;
+      }
+      
+      // Try to parse scientific notation
+      try {
+        const numValue = Number(value);
+        if (!isNaN(numValue)) {
+          const strValue = numValue.toString().replace('.', '');
+          if (/^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(strValue)) {
+            return strValue;
+          }
+        }
+      } catch (e) {
+        // Ignore parsing errors
       }
       
       // Otherwise, can't fix
@@ -507,6 +536,13 @@ function validateContentTypes(row, headers) {
           }
         });
       }
+    }
+  });
+  
+  // Mark title and description issues for special handling
+  contentTypeIssues.forEach(issue => {
+    if (issue.field === 'title' || issue.field === 'description') {
+      issue.isTitleDescriptionIssue = true;
     }
   });
   

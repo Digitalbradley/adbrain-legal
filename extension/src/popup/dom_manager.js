@@ -37,6 +37,7 @@ class DOMManager {
         this.elements.historyTableBody = this.getElement('validationHistory');
         
         // Status elements
+        this.elements.feedStatusArea = this.getElement('feedStatusArea');
         this.elements.feedStatusContent = this.getElement('feedStatusContent');
         
         // Tab elements

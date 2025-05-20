@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Feed Format Validator Test</title>
+    <link rel="stylesheet" href="popup_redesign.css">
+    <style>
+        /* Additional styles for the test page */
+        .test-controls {
+            margin: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        
+        .test-section {
+            margin-bottom: 20px;
+        }
+        
+        .test-section h2 {
+            margin-top: 0;
+        }
+        
+        .test-button {
+            padding: 8px 16px;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .test-button:hover {
+            background-color: #0055aa;
+        }
+        
+        .test-container {
+            margin: 20px;
+            padding: 20px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        
+        .editable-field {
+            padding: 5px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            min-height: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .editable-field:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        
+        .field-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .field-container {
+            margin-bottom: 15px;
+        }
+        
+        .field-error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+        
+        .field-success {
+            color: #28a745;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+        
+        .field-warning {
+            color: #ffc107;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+        
+        .error-highlight {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .warning-highlight {
+            background-color: #fff3cd;
+            border-color: #ffeeba;
+        }
+        
+        .success-highlight {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .feed-preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .feed-preview-table th {
+            background-color: #f8f9fa;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .feed-preview-table td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .feed-preview-table tr:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="branding">
+        <div class="branding-content">
+            <h1>Feed Format Validator Test</h1>
+            <p>Test page for the feed format validator and error UI</p>
+        </div>
+    </div>
+    
+    <div class="controls-bar">
+        <div class="top-controls">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".csv" class="file-input"/>
+            </div>
+            <button id="validateFeed" class="modern-button">Validate Feed Format</button>
+            <button id="clearErrors" class="modern-button secondary">Clear Errors</button>
+        </div>
+    </div>
+    
+    <div class="test-controls">
+        <div class="test-section">
+            <h2>Test Data</h2>
+            <button class="test-button" id="testValidData">Load Valid Data</button>
+            <button class="test-button" id="testInvalidTitle">Load Invalid Title</button>
+            <button class="test-button" id="testInvalidDescription">Load Invalid Description</button>
+            <button class="test-button" id="testMultipleErrors">Load Multiple Errors</button>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <div class="horizontal-controls">
+            <!-- Tab Buttons -->
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="feed">Feed Preview</button>
+                <button class="tab-button" data-tab="validation">Validation History</button>
+                <button class="tab-button" data-tab="settings">Settings</button>
+            </div>
+
+            <!-- Search Controls -->
+            <div class="search-controls">
+                <div class="search-bar">
+                    <div class="search-input-container">
+                        <i class="search-icon"></i>
+                        <input type="text" id="searchInput" placeholder="Search products...">
+                    </div>
+                    <select id="searchColumn">
+                        <option value="all">All Columns</option>
+                        <option value="title">Title</option>
+                        <option value="description">Description</option>
+                        <option value="price">Price</option>
+                        <option value="category">Category</option>
+                    </select>
+                    <select id="searchType">
+                        <option value="contains">Contains</option>
+                        <option value="equals">Equals</option>
+                        <option value="startsWith">Starts with</option>
+                    </select>
+                </div>
+                <div class="search-status"></div>
+            </div>
+
+            <!-- Feed Status Area -->
+            <div id="feedStatusArea" class="feed-status-area">
+                <h3>Feed Status</h3>
+                <div id="feedStatusContent" class="feed-status-content">
+                    <div class="status-message">No feed loaded. Upload a CSV file to begin.</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="previewContent" class="tab-panel active">
+            <h2>Feed Preview</h2>
+            <div id="editableFields">
+                <div class="field-container">
+                    <div class="field-label">Product ID:</div>
+                    <div id="productId" class="editable-field" contenteditable="false" data-field="id" data-offer-id="PROD001">PROD001</div>
+                </div>
+                
+                <div class="field-container">
+                    <div class="field-label">Title:</div>
+                    <div id="productTitle" class="editable-field" contenteditable="true" data-field="title" data-offer-id="PROD001">Professional Wireless Gaming Mouse with RGB Lighting</div>
+                    <div id="titleError" class="field-error" style="display: none;"></div>
+                    <div id="titleSuccess" class="field-success" style="display: none;">Title meets requirements</div>
+                </div>
+                
+                <div class="field-container">
+                    <div class="field-label">Description:</div>
+                    <div id="productDescription" class="editable-field" contenteditable="true" data-field="description" data-offer-id="PROD001">Experience gaming like never before with this professional wireless gaming mouse. Featuring customizable RGB lighting, ultra-precise optical sensor, and ergonomic design for maximum comfort during extended gaming sessions. Compatible with all major operating systems.</div>
+                    <div id="descriptionError" class="field-error" style="display: none;"></div>
+                    <div id="descriptionSuccess" class="field-success" style="display: none;">Description meets requirements</div>
+                </div>
+                
+                <div class="field-container">
+                    <div class="field-label">Price:</div>
+                    <div id="productPrice" class="editable-field" contenteditable="true" data-field="price" data-offer-id="PROD001">49.99 USD</div>
+                </div>
+                
+                <div class="field-container">
+                    <div class="field-label">Link:</div>
+                    <div id="productLink" class="editable-field" contenteditable="true" data-field="link" data-offer-id="PROD001">https://example.com/products/gaming-mouse</div>
+                </div>
+                
+                <div class="field-container">
+                    <div class="field-label">Image Link:</div>
+                    <div id="productImageLink" class="editable-field" contenteditable="true" data-field="image_link" data-offer-id="PROD001">https://example.com/images/gaming-mouse.jpg</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load required scripts -->
+    <script src="content_type_validator.js"></script>
+    <script src="csv_parser.js"></script>
+    <script src="feed_format_validator.js"></script>
+    <script src="feed_error_ui_manager.js"></script>
+    
+    <script>
+        // Initialize managers
+        let feedErrorUIManager;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tab functionality
+            initTabs();
+            
+            // Initialize feed error UI manager
+            feedErrorUIManager = new FeedErrorUIManager({
+                feedStatusArea: document.getElementById('feedStatusArea'),
+                feedStatusContent: document.getElementById('feedStatusContent')
+            });
+            
+            // Set up field validation
+            setupFieldValidation();
+            
+            // Set up test buttons
+            setupTestButtons();
+            
+            // Set up file input
+            setupFileInput();
+        });
+        
+        function initTabs() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabPanels = document.querySelectorAll('.tab-panel');
+            
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Get the tab to activate
+                    const tabToActivate = button.getAttribute('data-tab');
+                    
+                    // Deactivate all tabs
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabPanels.forEach(panel => panel.classList.remove('active'));
+                    
+                    // Activate the selected tab
+                    button.classList.add('active');
+                    document.getElementById(`${tabToActivate}-tab`).classList.add('active');
+                });
+            });
+        }
+        
+        function setupFieldValidation() {
+            // Get editable fields
+            const titleField = document.getElementById('productTitle');
+            const descriptionField = document.getElementById('productDescription');
+            
+            // Set up validation for title field
+            titleField.addEventListener('input', function() {
+                validateField(this, 'title');
+            });
+            
+            // Set up validation for description field
+            descriptionField.addEventListener('input', function() {
+                validateField(this, 'description');
+            });
+            
+            // Initial validation
+            validateField(titleField, 'title');
+            validateField(descriptionField, 'description');
+        }
+        
+        function validateField(field, fieldType) {
+            const content = field.textContent;
+            const offerId = field.dataset.offerId;
+            
+            // Get error and success elements
+            const errorElement = document.getElementById(`${fieldType}Error`);
+            const successElement = document.getElementById(`${fieldType}Success`);
+            
+            // Define validation rules
+            const minLength = fieldType === 'title' ? 30 : 90;
+            const maxLength = fieldType === 'title' ? 150 : 5000;
+            
+            // Check length
+            const length = content.length;
+            const isValid = length >= minLength && length <= maxLength;
+            
+            // Update UI
+            if (isValid) {
+                // Remove error highlight
+                field.classList.remove('error-highlight');
+                field.classList.remove('warning-highlight');
+                field.classList.add('success-highlight');
+                
+                // Hide error message
+                errorElement.style.display = 'none';
+                
+                // Show success message
+                successElement.textContent = `${fieldType.charAt(0).toUpperCase() + fieldType.slice(1)} meets requirements (${length} characters)`;
+                successElement.style.display = 'block';
+                
+                // Mark issue as fixed in feed error UI manager
+                if (feedErrorUIManager && feedErrorUIManager.hasError(offerId, fieldType)) {
+                    feedErrorUIManager.markIssueAsFixed(offerId, fieldType);
+                }
+            } else {
+                // Add error highlight
+                field.classList.remove('success-highlight');
+                field.classList.add(length < minLength ? 'error-highlight' : 'warning-highlight');
+                
+                // Show error message
+                errorElement.textContent = length < minLength
+                    ? `${fieldType.charAt(0).toUpperCase() + fieldType.slice(1)} too short (${length}/${minLength} characters)`
+                    : `${fieldType.charAt(0).toUpperCase() + fieldType.slice(1)} too long (${length}/${maxLength} characters)`;
+                errorElement.style.display = 'block';
+                
+                // Hide success message
+                successElement.style.display = 'none';
+            }
+            
+            return isValid;
+        }
+        
+        function setupTestButtons() {
+            // Test valid data
+            document.getElementById('testValidData').addEventListener('click', function() {
+                loadTestData({
+                    title: 'Professional Wireless Gaming Mouse with RGB Lighting',
+                    description: 'Experience gaming like never before with this professional wireless gaming mouse. Featuring customizable RGB lighting, ultra-precise optical sensor, and ergonomic design for maximum comfort during extended gaming sessions. Compatible with all major operating systems.'
+                });
+            });
+            
+            // Test invalid title
+            document.getElementById('testInvalidTitle').addEventListener('click', function() {
+                loadTestData({
+                    title: 'Gaming Mouse', // Too short
+                    description: 'Experience gaming like never before with this professional wireless gaming mouse. Featuring customizable RGB lighting, ultra-precise optical sensor, and ergonomic design for maximum comfort during extended gaming sessions. Compatible with all major operating systems.'
+                });
+                
+                // Simulate validation
+                simulateValidation([
+                    {
+                        type: 'title_too_short',
+                        message: 'Title too short (12 chars). Minimum 30 characters recommended.',
+                        severity: 'warning',
+                        rowIndex: 1,
+                        field: 'title',
+                        offerId: 'PROD001'
+                    }
+                ]);
+            });
+            
+            // Test invalid description
+            document.getElementById('testInvalidDescription').addEventListener('click', function() {
+                loadTestData({
+                    title: 'Professional Wireless Gaming Mouse with RGB Lighting',
+                    description: 'A great gaming mouse with RGB lighting.' // Too short
+                });
+                
+                // Simulate validation
+                simulateValidation([
+                    {
+                        type: 'description_too_short',
+                        message: 'Description too short (38 chars). Minimum 90 characters recommended.',
+                        severity: 'warning',
+                        rowIndex: 1,
+                        field: 'description',
+                        offerId: 'PROD001'
+                    }
+                ]);
+            });
+            
+            // Test multiple errors
+            document.getElementById('testMultipleErrors').addEventListener('click', function() {
+                loadTestData({
+                    title: 'Gaming Mouse', // Too short
+                    description: 'A great gaming mouse with RGB lighting.' // Too short
+                });
+                
+                // Simulate validation
+                simulateValidation([
+                    {
+                        type: 'title_too_short',
+                        message: 'Title too short (12 chars). Minimum 30 characters recommended.',
+                        severity: 'warning',
+                        rowIndex: 1,
+                        field: 'title',
+                        offerId: 'PROD001'
+                    },
+                    {
+                        type: 'description_too_short',
+                        message: 'Description too short (38 chars). Minimum 90 characters recommended.',
+                        severity: 'warning',
+                        rowIndex: 1,
+                        field: 'description',
+                        offerId: 'PROD001'
+                    }
+                ]);
+            });
+            
+            // Clear errors
+            document.getElementById('clearErrors').addEventListener('click', function() {
+                feedErrorUIManager.hideErrors();
+            });
+            
+            // Validate feed
+            document.getElementById('validateFeed').addEventListener('click', function() {
+                validateFeedFormat();
+            });
+        }
+        
+        function loadTestData(data) {
+            // Update title
+            if (data.title) {
+                const titleField = document.getElementById('productTitle');
+                titleField.textContent = data.title;
+                validateField(titleField, 'title');
+            }
+            
+            // Update description
+            if (data.description) {
+                const descriptionField = document.getElementById('productDescription');
+                descriptionField.textContent = data.description;
+                validateField(descriptionField, 'description');
+            }
+        }
+        
+        function simulateValidation(issues) {
+            // Display errors
+            feedErrorUIManager.displayErrors(issues);
+        }
+        
+        function setupFileInput() {
+            const fileInput = document.getElementById('fileInput');
+            
+            fileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    validateFeedFormat();
+                }
+            });
+        }
+        
+        function validateFeedFormat() {
+            const fileInput = document.getElementById('fileInput');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select a CSV file first');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            
+            // Validate the file
+            feedErrorUIManager.validateFile(file)
+                .then(results => {
+                    console.log('Validation results:', results);
+                })
+                .catch(error => {
+                    console.error('Error validating file:', error);
+                    alert(`Error validating file: ${error.message}`);
+                });
+        }
+    </script>
+</body>
+</html>

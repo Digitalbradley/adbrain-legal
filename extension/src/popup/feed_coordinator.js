@@ -232,6 +232,139 @@ class FeedCoordinator {
             const csvText = await this.readFileAsText(file);
             
             try {
+                // Check if FeedErrorUIManager is available
+                const feedErrorUIManager = this.managers.feedErrorUIManager;
+                console.log('[DEBUG] FeedErrorUIManager available:', !!feedErrorUIManager);
+                console.log('[DEBUG] FeedErrorUIManager:', feedErrorUIManager);
+                
+                // Initialize validation result
+                let validationResult = { isValid: true, issues: [] };
+                
+                if (feedErrorUIManager) {
+                    console.log('[DEBUG] Using FeedErrorUIManager to validate feed format');
+                    console.log('[DEBUG] CSV text length:', csvText?.length || 0);
+                    console.log('[DEBUG] CSV text preview:', csvText?.substring(0, 100) + '...');
+                    
+                    try {
+                        // Validate feed format using FeedErrorUIManager
+                        console.log('[DEBUG] Calling feedErrorUIManager.validateFile');
+                        validationResult = await feedErrorUIManager.validateFile(csvText);
+                        console.log('[DEBUG] Validation result:', validationResult);
+                        
+                        // Check if there are any non-title/description issues
+                        const nonTitleDescIssues = validationResult.issues.filter(issue =>
+                            !(issue.field === 'title' || issue.field === 'description'));
+                        
+                        // Only show popup if there are non-title/description issues
+                        if (nonTitleDescIssues.length > 0) {
+                            console.log('[DEBUG] Found non-title/description issues:', nonTitleDescIssues.length);
+                        } else {
+                            console.log('[DEBUG] No non-title/description issues found, skipping popup');
+                            // Force isValid to true to prevent popup
+                            validationResult.isValid = true;
+                        }
+                        
+                        // If validation failed, display errors but continue with preview
+                        if (validationResult && !validationResult.isValid && validationResult.issues && validationResult.issues.length > 0) {
+                            console.log('[DEBUG] Feed format validation failed:', validationResult.issues);
+                            
+                            // Filter out title and description validation errors
+                            const filteredIssues = validationResult.issues.filter(issue => {
+                                // Skip if marked as title/description issue
+                                if (issue.isTitleDescriptionIssue) {
+                                    console.log(`[FeedCoordinator] Skipping issue marked as title/description issue: ${issue.message}`);
+                                    return false;
+                                }
+                                
+                                // Skip issues with title or description fields
+                                if (issue.field === 'title' || issue.field === 'description') {
+                                    console.log(`[FeedCoordinator] Skipping ${issue.field} issue for feed status: ${issue.message}`);
+                                    return false;
+                                }
+                                
+                                // Also skip any issue message that contains "title" or "description"
+                                if (issue.message && (
+                                    issue.message.toLowerCase().includes('title') ||
+                                    issue.message.toLowerCase().includes('description')
+                                )) {
+                                    console.log(`[FeedCoordinator] Skipping issue with title/description in message: ${issue.message}`);
+                                    return false;
+                                }
+                                
+                                return true;
+                            });
+                            
+                            console.log('[DEBUG] Filtered issues for feed status:', filteredIssues.length);
+                            
+                            // Display filtered errors in feed status area
+                            if (filteredIssues.length > 0) {
+                                console.log('[DEBUG] Calling feedErrorUIManager.displayErrors with', filteredIssues.length, 'issues');
+                                feedErrorUIManager.displayErrors(filteredIssues);
+                                
+                                // Replace popup alert with console log
+                                console.log(`[DEBUG] Feed has ${filteredIssues.length} format issues shown in Feed Status.`);
+                                
+                                // Update validation history tab if available
+                                // Add skipTabSwitch parameter to prevent automatic tab switching during preview
+                                if (this.managers.validationUIManager) {
+                                    const feedId = 'FORMAT-' + Date.now();
+                                    this.managers.validationUIManager.displayValidationResults(feedId, {
+                                        issues: filteredIssues,
+                                        isValid: false
+                                    }, { skipTabSwitch: true }); // Add parameter to skip tab switching for Preview Feed
+                                }
+                                
+                                // Log operation
+                                monitor.logOperation('preview', 'warning', { reason: 'format_validation_issues', issues: filteredIssues.length });
+                            } else {
+                                // No filtered issues to display
+                                feedErrorUIManager.displayErrors([]);
+                            }
+                            
+                            // Note: We continue with the preview even if there are format errors
+                            console.log('[DEBUG] Continuing with preview despite format errors');
+                        }
+                        
+                        console.log('[DEBUG] Feed format validation passed');
+                    } catch (validationError) {
+                        console.error('[DEBUG] Error during feed format validation:', validationError);
+                        
+                        // Create a generic error for display
+                        const genericError = [{
+                            type: 'validation_error',
+                            message: `Error validating feed format: ${validationError.message}`,
+                            severity: 'error',
+                            rowIndex: 'unknown',
+                            field: 'general'
+                        }];
+                        
+                        // Display the error
+                        feedErrorUIManager.displayErrors(genericError);
+                        
+                        // Hide loading indicator
+                        loadingManager.hideLoading();
+                        
+                        // Replace popup alert with console log
+                        console.log(`[DEBUG] Error validating feed format: ${validationError.message}`);
+                        
+                        // Update validation history tab if available
+                        if (this.managers.validationUIManager) {
+                            const feedId = 'ERROR-' + Date.now();
+                            this.managers.validationUIManager.displayValidationResults(feedId, {
+                                issues: genericError,
+                                isValid: false
+                            }, { skipTabSwitch: true }); // Add parameter to skip tab switching for Preview Feed
+                        }
+                        
+                        // Log operation
+                        monitor.logOperation('preview', 'failed', { reason: 'validation_error', error: validationError.message });
+                        
+                        return;
+                    }
+                } else {
+                    console.log('[DEBUG] FeedErrorUIManager not available, skipping feed format validation');
+                }
+                
                 // Use the CSVParser module instead of the internal parseCSV method
                 console.log('[DEBUG] Using CSVParser module to parse CSV');
                 
@@ -318,19 +451,62 @@ class FeedCoordinator {
                     
                     // Add content type warnings if any
                     if (warningsByType.content_type_issues) {
-                        warningMessage += `- Content type issues detected in ${warningsByType.content_type_issues.length} rows\n`;
+                        // Count non-title/description issues
+                        const nonTitleDescIssues = [];
+                        warningsByType.content_type_issues.forEach(warning => {
+                            const filteredIssues = warning.issues.filter(issue =>
+                                !(issue.field === 'title' || issue.field === 'description' ||
+                                  issue.isTitleDescriptionIssue ||
+                                  (issue.message && (
+                                    issue.message.toLowerCase().includes('title') ||
+                                    issue.message.toLowerCase().includes('description')
+                                  ))
+                                )
+                            );
+                            
+                            if (filteredIssues.length > 0) {
+                                nonTitleDescIssues.push({
+                                    ...warning,
+                                    issues: filteredIssues
+                                });
+                            }
+                        });
                         
-                        // If there are only a few issues, show details
-                        if (warningsByType.content_type_issues.length <= 3) {
-                            warningsByType.content_type_issues.forEach(warning => {
-                                warningMessage += `  - Row ${warning.row}: ${warning.issues.map(issue =>
-                                    `${issue.field} ${issue.message}`).join(', ')}\n`;
-                            });
+                        if (nonTitleDescIssues.length > 0) {
+                            warningMessage += `- Content type issues detected in ${nonTitleDescIssues.length} rows\n`;
+                            
+                            // If there are only a few issues, show details
+                            if (nonTitleDescIssues.length <= 3) {
+                                nonTitleDescIssues.forEach(warning => {
+                                    warningMessage += `  - Row ${warning.row}: ${warning.issues.map(issue =>
+                                        `${issue.field} ${issue.message}`).join(', ')}\n`;
+                                });
+                            }
                         }
                         
                         // Add summary to feed status area
                         if (this.managers.statusManager) {
-                            this.managers.statusManager.addWarning(`Content type issues detected in ${warningsByType.content_type_issues.length} rows. See details in Feed Status area above.`);
+                            // Count non-title/description issues
+                            let nonTitleDescIssueCount = 0;
+                            warningsByType.content_type_issues.forEach(warning => {
+                                const filteredIssues = warning.issues.filter(issue =>
+                                    !(issue.field === 'title' || issue.field === 'description' ||
+                                      issue.isTitleDescriptionIssue ||
+                                      (issue.message && (
+                                        issue.message.toLowerCase().includes('title') ||
+                                        issue.message.toLowerCase().includes('description')
+                                      ))
+                                    )
+                                );
+                                
+                                if (filteredIssues.length > 0) {
+                                    nonTitleDescIssueCount++;
+                                }
+                            });
+                            
+                            if (nonTitleDescIssueCount > 0) {
+                                this.managers.statusManager.addWarning(`Content type issues detected in ${nonTitleDescIssueCount} rows. See details in Feed Status area above.`);
+                            }
                         }
                         
                         // Group issues by type for a more organized summary
@@ -348,13 +524,42 @@ class FeedCoordinator {
                         // Add issue summary to feed status
                         if (this.managers.statusManager) {
                             Object.entries(issuesByType).forEach(([issue, count]) => {
+                                // Skip title and description issues
+                                if (issue.toLowerCase().includes('title') || issue.toLowerCase().includes('description')) {
+                                    console.log(`[FeedCoordinator] Skipping title/description issue for feed status: ${issue}`);
+                                    return;
+                                }
                                 this.managers.statusManager.addWarning(`${count} instances of: ${issue}`);
                             });
                         }
                     }
                     
-                    // Show the warning to the user
-                    errorManager.showWarning(warningMessage, 8000); // Show for longer duration
+                    // Replace popup alert with console log
+                    console.log(`[DEBUG] Warning: ${warningMessage}`);
+                    
+                    // Update validation history tab if available
+                    if (this.managers.validationUIManager) {
+                        const feedId = 'WARNING-' + Date.now();
+                        
+                        // Convert warnings to validation issues format
+                        const warningIssues = [];
+                        Object.entries(warningsByType).forEach(([type, warnings]) => {
+                            warnings.forEach(warning => {
+                                warningIssues.push({
+                                    type: 'warning',
+                                    message: warning.message || `${type} warning`,
+                                    severity: 'warning',
+                                    row: warning.row || 'unknown',
+                                    field: warning.field || 'general'
+                                });
+                            });
+                        });
+                        
+                        this.managers.validationUIManager.displayValidationResults(feedId, {
+                            issues: warningIssues,
+                            isValid: false
+                        }, { skipTabSwitch: true }); // Add parameter to skip tab switching for Preview Feed
+                    }
                 }
                 
                 // Update search columns after display
@@ -365,7 +570,7 @@ class FeedCoordinator {
                 }
                 
                 monitor.logOperation('preview', 'completed', { products: data.length, fileName: file.name });
-                errorManager.showSuccess(`Preview loaded for ${file.name}`, 2000);
+                console.log(`[DEBUG] Preview loaded for ${file.name}`);
                 
             } catch (parseError) {
                 console.error('[DEBUG] CSV parsing error:', parseError);
@@ -398,20 +603,94 @@ class FeedCoordinator {
                         errorMessage += '\nSuggestion: Please ensure your CSV file contains data rows after the header row.';
                     }
                     
-                    // Show the error to the user
-                    errorManager.showError(errorMessage);
+                    // Replace popup alert with console log
+                    console.log(`[DEBUG] Error: ${errorMessage}`);
                     
-                    // Update feed status area
-                    if (this.managers.statusManager) {
-                        this.managers.statusManager.addError('Failed to preview file. See error message for details.');
+                    // Update validation history tab if available
+                    if (this.managers.validationUIManager) {
+                        const feedId = 'ERROR-' + Date.now();
+                        
+                        // Convert errors to validation issues format
+                        const errorIssues = errors.map(err => ({
+                            type: 'error',
+                            message: err.message,
+                            severity: 'error',
+                            row: err.row || 'unknown',
+                            field: err.field || 'general'
+                        }));
+                        
+                        this.managers.validationUIManager.displayValidationResults(feedId, {
+                            issues: errorIssues,
+                            isValid: false
+                        }, { skipTabSwitch: true }); // Add parameter to skip tab switching for Preview Feed
+                    }
+                    
+                    // Use FeedErrorUIManager to display feed format errors if available
+                    const feedErrorUIManager = this.managers.feedErrorUIManager;
+                    if (feedErrorUIManager) {
+                        console.log('[DEBUG] Using FeedErrorUIManager to display feed format errors');
+                        
+                        // Convert errors to the format expected by FeedErrorUIManager
+                        const feedErrors = errors.map(err => ({
+                            type: 'error',
+                            message: err.message,
+                            severity: 'error',
+                            row: err.row || 'unknown',
+                            field: err.field || 'general'
+                        }));
+                        
+                        // Display errors in feed status area
+                        feedErrorUIManager.displayErrors(feedErrors);
+                    } else {
+                        // Fallback to statusManager if FeedErrorUIManager is not available
+                        console.log('[DEBUG] FeedErrorUIManager not available, using statusManager');
+                        if (this.managers.statusManager) {
+                            this.managers.statusManager.addError('Failed to preview file. See error message for details.');
+                        }
                     }
                 } else {
-                    // Handle generic error
-                    errorManager.showError(`Failed to preview file: ${parseError.message}`);
+                    // Replace popup alert with console log
+                    console.log(`[DEBUG] Failed to preview file: ${parseError.message}`);
                     
-                    // Update feed status area
-                    if (this.managers.statusManager) {
-                        this.managers.statusManager.addError(`Failed to preview file: ${parseError.message}`);
+                    // Update validation history tab if available
+                    if (this.managers.validationUIManager) {
+                        const feedId = 'ERROR-' + Date.now();
+                        const errorIssue = [{
+                            type: 'error',
+                            message: `Failed to preview file: ${parseError.message}`,
+                            severity: 'error',
+                            row: 'unknown',
+                            field: 'general'
+                        }];
+                        
+                        this.managers.validationUIManager.displayValidationResults(feedId, {
+                            issues: errorIssue,
+                            isValid: false
+                        }, { skipTabSwitch: true }); // Add parameter to skip tab switching for Preview Feed
+                    }
+                    
+                    // Use FeedErrorUIManager to display feed format errors if available
+                    const feedErrorUIManager = this.managers.feedErrorUIManager;
+                    if (feedErrorUIManager) {
+                        console.log('[DEBUG] Using FeedErrorUIManager to display generic error');
+                        
+                        // Create a generic error for FeedErrorUIManager
+                        const feedErrors = [{
+                            type: 'error',
+                            message: `Failed to preview file: ${parseError.message}`,
+                            severity: 'error',
+                            row: 'unknown',
+                            field: 'general'
+                        }];
+                        
+                        // Display errors in feed status area
+                        feedErrorUIManager.displayErrors(feedErrors);
+                    } else {
+                        // Fallback to statusManager if FeedErrorUIManager is not available
+                        console.log('[DEBUG] FeedErrorUIManager not available, using statusManager');
+                        if (this.managers.statusManager) {
+                            this.managers.statusManager.addError(`Failed to preview file: ${parseError.message}`);
+                        }
                     }
                 }
                 
@@ -420,7 +699,49 @@ class FeedCoordinator {
             
         } catch (error) {
             console.error('[DEBUG] Unexpected error in handlePreview:', error);
-            errorManager.showError(`An unexpected error occurred: ${error.message}`);
+            console.log(`[DEBUG] An unexpected error occurred: ${error.message}`);
+            
+            // Update validation history tab if available
+            if (this.managers.validationUIManager) {
+                const feedId = 'ERROR-' + Date.now();
+                const errorIssue = [{
+                    type: 'error',
+                    message: `An unexpected error occurred: ${error.message}`,
+                    severity: 'error',
+                    row: 'unknown',
+                    field: 'general'
+                }];
+                
+                this.managers.validationUIManager.displayValidationResults(feedId, {
+                    issues: errorIssue,
+                    isValid: false
+                }, { skipTabSwitch: true }); // Add parameter to skip tab switching for Preview Feed
+            }
+            
+            // Use FeedErrorUIManager to display feed format errors if available
+            const feedErrorUIManager = this.managers.feedErrorUIManager;
+            if (feedErrorUIManager) {
+                console.log('[DEBUG] Using FeedErrorUIManager to display unexpected error');
+                
+                // Create a generic error for FeedErrorUIManager
+                const feedErrors = [{
+                    type: 'error',
+                    message: `An unexpected error occurred: ${error.message}`,
+                    severity: 'error',
+                    row: 'unknown',
+                    field: 'general'
+                }];
+                
+                // Display errors in feed status area
+                feedErrorUIManager.displayErrors(feedErrors);
+            } else {
+                // Fallback to statusManager if FeedErrorUIManager is not available
+                console.log('[DEBUG] FeedErrorUIManager not available, using statusManager');
+                if (this.managers.statusManager) {
+                    this.managers.statusManager.addError(`An unexpected error occurred: ${error.message}`);
+                }
+            }
+            
             monitor.logError('preview', error);
         } finally {
             loadingManager.hideLoading();
@@ -516,7 +837,7 @@ class FeedCoordinator {
                 event.target.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
                 event.target.style.borderColor = '#28a745';
                 
-                console.log(`[FeedCoordinator] Field "${fieldName}" (Row ${rowIndex}) met length reqs (${currentLength}). Notifying UI Manager.`);
+                console.log(`[FeedCoordinator] Field "${fieldName}" (Row ${rowIndex}) met length reqs (${currentLength}). Notifying UI Managers.`);
                 
                 // Check if all fields in the row are valid before removing the needs-fix class
                 const invalidFields = row.querySelectorAll('.editable-field.under-minimum, .editable-field.over-limit');
@@ -529,10 +850,27 @@ class FeedCoordinator {
                     // Try to get the latest reference to validationUIManager from the managers object
                     const validationUIManager = this.managers.validationUIManager;
                     if (validationUIManager && typeof validationUIManager.markIssueAsFixed === 'function') {
-                        console.log(`[FeedCoordinator] Notifying UI Manager to fix offerId: ${offerId}, field: ${fieldName}`);
+                        console.log(`[FeedCoordinator] Notifying ValidationUIManager to fix offerId: ${offerId}, field: ${fieldName}`);
                         validationUIManager.markIssueAsFixed(offerId, fieldName);
                     } else {
                         console.warn("ValidationUIManager or markIssueAsFixed method not available to notify.");
+                    }
+                    
+                    // Notify FeedErrorUIManager to remove the issue from the feed status area
+                    const feedErrorUIManager = this.managers.feedErrorUIManager;
+                    if (feedErrorUIManager && typeof feedErrorUIManager.markIssueAsFixed === 'function') {
+                        console.log(`[FeedCoordinator] Notifying FeedErrorUIManager to fix offerId: ${offerId}, field: ${fieldName}`);
+                        
+                        // Skip title and description length validation errors for feed status
+                        // Only mark other issues as fixed in the feed status area
+                        if (!((fieldName === 'title' || fieldName === 'description') &&
+                             (currentLength >= minLength && currentLength <= maxLength))) {
+                            feedErrorUIManager.markIssueAsFixed(offerId, fieldName);
+                        } else {
+                            console.log(`[FeedCoordinator] Skipping title/description length fix in feed status area`);
+                        }
+                    } else {
+                        console.log("[FeedCoordinator] FeedErrorUIManager or markIssueAsFixed method not available to notify.");
                     }
                     
                     // Clean up UI

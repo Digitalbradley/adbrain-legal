@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (previewButton) {
         console.log('[DIRECT] Found Preview Feed button, adding click listener');
-        previewButton.addEventListener('click', function() {
+        previewButton.addEventListener('click', async function() {
             console.log('[DIRECT] Preview Feed button clicked');
             
             // Check if file is selected
@@ -23,9 +23,35 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Read the file
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const csvContent = e.target.result;
                 console.log('[DIRECT] File read successfully, length:', csvContent.length);
+                
+                // Validate feed format using FeedErrorUIManager if available
+                if (window.feedErrorUIManager && typeof window.feedErrorUIManager.validateFile === 'function') {
+                    console.log('[DIRECT] Using FeedErrorUIManager to validate feed format');
+                    
+                    try {
+                        // Validate feed format
+                        const validationResult = await window.feedErrorUIManager.validateFile(csvContent);
+                        console.log('[DIRECT] Feed format validation result:', validationResult);
+                        
+                        // If validation failed, display errors but continue with preview
+                        if (validationResult && !validationResult.isValid && validationResult.issues && validationResult.issues.length > 0) {
+                            console.log('[DIRECT] Feed format validation failed:', validationResult.issues);
+                            
+                            // Display errors in feed status area
+                            window.feedErrorUIManager.displayErrors(validationResult.issues);
+                            
+                            // Note: We continue with the preview even if there are format errors
+                            console.log('[DIRECT] Continuing with preview despite format errors');
+                        }
+                    } catch (validationError) {
+                        console.error('[DIRECT] Error during feed format validation:', validationError);
+                    }
+                } else {
+                    console.log('[DIRECT] FeedErrorUIManager not available, skipping feed format validation');
+                }
                 
                 // Simple CSV parsing
                 const lines = csvContent.split('\n');

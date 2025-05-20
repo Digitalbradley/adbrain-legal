@@ -144,6 +144,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             window.validationUIManager.markIssueAsFixed(offerId, fieldName);
                         }
                         
+                        // Also try the FeedErrorUIManager system
+                        if (window.feedErrorUIManager && typeof window.feedErrorUIManager.markIssueAsFixed === 'function') {
+                            console.log(`[FeedManager] Notifying FeedErrorUIManager to fix offerId: ${offerId}, field: ${fieldName}`);
+                            window.feedErrorUIManager.markIssueAsFixed(offerId, fieldName);
+                        }
+                        
                         // Clean up UI
                         setTimeout(() => row.classList.remove('fix-complete'), 1000);
                     }
@@ -176,8 +182,40 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const file = fileInputEl.files[0];
             const csvText = await readFileAsText(file);
-            const data = parseCSV(csvText);
             
+            // Validate feed format using FeedErrorUIManager if available
+            if (window.feedErrorUIManager && typeof window.feedErrorUIManager.validateFile === 'function') {
+                console.log('[DEBUG] Using FeedErrorUIManager to validate feed format');
+                
+                try {
+                    // Validate feed format
+                    const validationResult = await window.feedErrorUIManager.validateFile(csvText);
+                    console.log('[DEBUG] Feed format validation result:', validationResult);
+                    
+                    // If validation failed, display errors and return
+                    if (validationResult && !validationResult.isValid && validationResult.issues && validationResult.issues.length > 0) {
+                        console.log('[DEBUG] Feed format validation failed:', validationResult.issues);
+                        
+                        // Display errors in feed status area
+                        window.feedErrorUIManager.displayErrors(validationResult.issues);
+                        
+                        // Hide loading state
+                        document.body.classList.remove('is-loading');
+                        
+                        // Show warning to user
+                        alert(`Feed has ${validationResult.issues.length} format issues. Please fix them before proceeding.`);
+                        
+                        return;
+                    }
+                } catch (validationError) {
+                    console.error('[DEBUG] Error during feed format validation:', validationError);
+                }
+            } else {
+                console.log('[DEBUG] FeedErrorUIManager not available, skipping feed format validation');
+            }
+            
+            // Parse and display the CSV
+            const data = parseCSV(csvText);
             await displayPreview(data, previewContentContainer);
             
             console.log('[DEBUG] Preview loaded successfully');

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Feed Error UI Test</title>
+    <link rel="stylesheet" href="popup_redesign.css">
+    <style>
+        /* Additional styles for the test page */
+        .test-controls {
+            margin: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        
+        .test-section {
+            margin-bottom: 20px;
+        }
+        
+        .test-section h2 {
+            margin-top: 0;
+        }
+        
+        .test-button {
+            padding: 8px 16px;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .test-button:hover {
+            background-color: #0055aa;
+        }
+        
+        .test-container {
+            margin: 20px;
+            padding: 20px;
+            background-color: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="branding">
+        <div class="branding-content">
+            <h1>Feed Error UI Test</h1>
+            <p>Test page for the enhanced feed error UI system</p>
+        </div>
+    </div>
+    
+    <div class="controls-bar">
+        <div class="top-controls">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".csv" class="file-input"/>
+            </div>
+            <button id="previewFeed" class="modern-button">Preview Feed</button>
+            <button id="exportFeed" class="modern-button">Export Feed</button>
+            <button id="testGMCAuth" class="modern-button">Verify GMC Connection</button>
+            <button id="validateGMC" class="modern-button">Validate Feed <span class="premium-badge">PRO</span></button>
+        </div>
+    </div>
+    
+    <div class="test-controls">
+        <div class="test-section">
+            <h2>Test Error Display</h2>
+            <button class="test-button" id="testNoErrors">No Errors</button>
+            <button class="test-button" id="testSingleError">Single Error</button>
+            <button class="test-button" id="testMultipleErrors">Multiple Errors</button>
+            <button class="test-button" id="testComplexErrors">Complex Errors</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test UI Layout</h2>
+            <button class="test-button" id="testHorizontalLayout">Horizontal Layout</button>
+            <button class="test-button" id="testCollapsedErrors">Collapsed Errors</button>
+            <button class="test-button" id="testExpandedErrors">Expanded Errors</button>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <div class="horizontal-controls">
+            <!-- Tab Buttons -->
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="feed">Feed Preview</button>
+                <button class="tab-button" data-tab="validation">Validation History</button>
+                <button class="tab-button" data-tab="settings">Settings</button>
+            </div>
+
+            <!-- Search Controls -->
+            <div class="search-controls">
+                <div class="search-bar">
+                    <div class="search-input-container">
+                        <i class="search-icon"></i>
+                        <input type="text" id="searchInput" placeholder="Search products...">
+                    </div>
+                    <select id="searchColumn">
+                        <option value="all">All Columns</option>
+                        <option value="title">Title</option>
+                        <option value="description">Description</option>
+                        <option value="price">Price</option>
+                        <option value="category">Category</option>
+                    </select>
+                    <select id="searchType">
+                        <option value="contains">Contains</option>
+                        <option value="equals">Equals</option>
+                        <option value="startsWith">Starts with</option>
+                    </select>
+                </div>
+                <div class="search-status"></div>
+            </div>
+
+            <!-- Feed Status Area -->
+            <div id="feedStatusArea" class="feed-status-area">
+                <h3>Feed Status</h3>
+                <div id="feedStatusContent" class="feed-status-content">
+                    <div class="status-message">No feed loaded. Upload a CSV file to begin.</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="previewContent" style="padding: 20px;">
+            <p>This is a test page for the enhanced feed error UI system.</p>
+            <p>Click the buttons above to test different error scenarios.</p>
+        </div>
+    </div>
+    
+    <script>
+        // Sample error data
+        const sampleErrors = {
+            noErrors: [],
+            singleError: [
+                {
+                    title: "Missing required columns",
+                    message: "The following required columns are missing: price, availability",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "Learn More"
+                    }
+                }
+            ],
+            multipleErrors: [
+                {
+                    title: "Missing required columns",
+                    message: "The following required columns are missing: price, availability",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "Learn More"
+                    }
+                },
+                {
+                    title: "Malformed CSV structure",
+                    message: "Rows 15, 23, and 42 have an incorrect number of columns",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "View Details"
+                    }
+                },
+                {
+                    title: "Empty required fields",
+                    message: "5 rows have empty required fields",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "View Details"
+                    }
+                }
+            ],
+            complexErrors: [
+                {
+                    title: "Missing required columns",
+                    message: "The following required columns are missing: price, availability",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "Learn More"
+                    }
+                },
+                {
+                    title: "Malformed CSV structure",
+                    message: "Rows 15, 23, and 42 have an incorrect number of columns",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "View Details"
+                    }
+                },
+                {
+                    title: "Empty required fields",
+                    message: "5 rows have empty required fields",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "View Details"
+                    }
+                },
+                {
+                    title: "Invalid data types",
+                    message: "Column 'price' contains non-numeric values in rows 7, 12, 18",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "View Details"
+                    }
+                },
+                {
+                    title: "Character encoding issues",
+                    message: "Non-UTF8 characters detected in rows 31, 45",
+                    action: {
+                        type: "link",
+                        target: "#",
+                        text: "View Details"
+                    }
+                }
+            ]
+        };
+        
+        // Function to display feed errors
+        function displayFeedErrors(errors) {
+            const feedStatusContent = document.getElementById('feedStatusContent');
+            
+            if (!feedStatusContent) return;
+            
+            // Clear existing content
+            feedStatusContent.innerHTML = '';
+            
+            if (!errors || errors.length === 0) {
+                // No errors, show success message
+                feedStatusContent.innerHTML = '<div class="status-message success">Feed loaded successfully. No errors detected.</div>';
+                return;
+            }
+            
+            // Create error container
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'feed-error-container';
+            
+            // Create error header
+            const errorHeader = document.createElement('div');
+            errorHeader.className = 'feed-error-header';
+            errorHeader.innerHTML = `
+                <h3>Feed Errors (${errors.length})</h3>
+                <span class="feed-error-count">${errors.length}</span>
+            `;
+            
+            // Create error content
+            const errorContent = document.createElement('div');
+            errorContent.className = 'feed-error-content';
+            
+            // Add errors to content
+            errors.forEach(error => {
+                const errorItem = document.createElement('div');
+                errorItem.className = 'feed-error-item';
+                
+                const errorTitle = document.createElement('div');
+                errorTitle.className = 'feed-error-title';
+                errorTitle.innerHTML = `<span class="feed-error-icon">⚠️</span> ${error.title}`;
+                
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'feed-error-message';
+                errorMessage.textContent = error.message;
+                
+                const errorAction = document.createElement('div');
+                errorAction.className = 'feed-error-action';
+                
+                if (error.action) {
+                    errorAction.innerHTML = `<a href="#" data-action="${error.action.type}" data-target="${error.action.target}">${error.action.text}</a>`;
+                }
+                
+                errorItem.appendChild(errorTitle);
+                errorItem.appendChild(errorMessage);
+                
+                if (error.action) {
+                    errorItem.appendChild(errorAction);
+                }
+                
+                errorContent.appendChild(errorItem);
+            });
+            
+            // Add click handler to toggle collapse/expand
+            errorHeader.addEventListener('click', () => {
+                errorContent.classList.toggle('collapsed');
+            });
+            
+            // Assemble error container
+            errorContainer.appendChild(errorHeader);
+            errorContainer.appendChild(errorContent);
+            
+            // Add to feed status content
+            feedStatusContent.appendChild(errorContainer);
+        }
+        
+        // Initialize test buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize file input
+            const fileInput = document.getElementById('fileInput');
+            const fileInputWrapper = fileInput?.parentElement;
+            
+            if (fileInput && fileInputWrapper) {
+                // Set default text
+                fileInputWrapper.setAttribute('data-file-name', 'No file chosen');
+                
+                // Update text when file is selected
+                fileInput.addEventListener('change', function() {
+                    const fileName = this.files.length > 0 ? this.files[0].name : 'No file chosen';
+                    fileInputWrapper.setAttribute('data-file-name', fileName);
+                });
+            }
+            
+            // Test error display buttons
+            document.getElementById('testNoErrors').addEventListener('click', () => {
+                displayFeedErrors(sampleErrors.noErrors);
+            });
+            
+            document.getElementById('testSingleError').addEventListener('click', () => {
+                displayFeedErrors(sampleErrors.singleError);
+            });
+            
+            document.getElementById('testMultipleErrors').addEventListener('click', () => {
+                displayFeedErrors(sampleErrors.multipleErrors);
+            });
+            
+            document.getElementById('testComplexErrors').addEventListener('click', () => {
+                displayFeedErrors(sampleErrors.complexErrors);
+            });
+            
+            // Test UI layout buttons
+            document.getElementById('testHorizontalLayout').addEventListener('click', () => {
+                // Toggle horizontal layout class
+                document.querySelector('.horizontal-controls').classList.toggle('expanded');
+            });
+            
+            document.getElementById('testCollapsedErrors').addEventListener('click', () => {
+                // Add collapsed class to error content
+                const errorContent = document.querySelector('.feed-error-content');
+                if (errorContent) {
+                    errorContent.classList.add('collapsed');
+                } else {
+                    // If no error content exists, create it first
+                    displayFeedErrors(sampleErrors.multipleErrors);
+                    setTimeout(() => {
+                        document.querySelector('.feed-error-content').classList.add('collapsed');
+                    }, 100);
+                }
+            });
+            
+            document.getElementById('testExpandedErrors').addEventListener('click', () => {
+                // Remove collapsed class from error content
+                const errorContent = document.querySelector('.feed-error-content');
+                if (errorContent) {
+                    errorContent.classList.remove('collapsed');
+                } else {
+                    // If no error content exists, create it first
+                    displayFeedErrors(sampleErrors.multipleErrors);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

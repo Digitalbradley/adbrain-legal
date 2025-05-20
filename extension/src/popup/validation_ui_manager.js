@@ -311,8 +311,10 @@ class ValidationUIManager {
      * @param {string} feedId - A unique ID for this validation run.
      * @param {object} results - The validation results object from GMCApi/GMCValidator.
      *                           Format: { isValid, totalProducts, validProducts, issues: [{ rowIndex, field, type, message }] }
+     * @param {object} options - Optional parameters
+     * @param {boolean} options.skipTabSwitch - If true, don't switch to the validation tab (used for Preview Feed)
      */
-    displayValidationResults(feedId, results) {
+    displayValidationResults(feedId, results, options = {}) {
         if (!results) {
             this.managers.errorManager.showError("Cannot display validation results: No data provided.");
             return;
@@ -333,11 +335,15 @@ class ValidationUIManager {
         // Save to Firestore asynchronously
         this.saveResultsToFirestore(feedId, results);
         
-        // Switch to the validation tab to show the results
-        this.switchToValidationTab();
+        // Only switch to validation tab if not skipped (for Preview Feed)
+        if (!options.skipTabSwitch) {
+            this.switchToValidationTab();
+        }
         
-        // Show success message
-        this.managers.errorManager.showSuccess(`Validation complete. Results shown in Validation History tab.`, 3000);
+        // Show success message only if not skipped (for Preview Feed)
+        if (!options.skipTabSwitch) {
+            this.managers.errorManager.showSuccess(`Validation complete. Results shown in Validation History tab.`, 3000);
+        }
         
         console.log('[DEBUG] Validation results displayed in Validation History tab');
     }
@@ -719,6 +725,13 @@ class ValidationUIManager {
         let selector = `.issue-item[data-row="${validatorRowIndex}"][data-field="${fieldName}"]`;
         let issueItemsToRemove = activePanel.querySelectorAll(selector);
         
+        // If no items found, try with data-offer-id attribute
+        if (issueItemsToRemove.length === 0) {
+            console.log(`[ValidationUIManager] No issues found with row/field match, trying offer ID match`);
+            selector = `.issue-item[data-offer-id="${offerId}"][data-field="${fieldName}"]`;
+            issueItemsToRemove = activePanel.querySelectorAll(selector);
+        }
+        
         // If no items found, try with the field name in the issue message
         if (issueItemsToRemove.length === 0) {
             console.log(`[ValidationUIManager] No issues found with exact field match, trying message content search`);
@@ -740,22 +753,29 @@ class ValidationUIManager {
         
         console.log(`[ValidationUIManager] Searching for issue items with selector: ${selector}`);
         
+        // If we found issue items to remove, remove them
+        let issuesRemoved = false;
         if (issueItemsToRemove.length > 0) {
             console.log(`[ValidationUIManager] Found ${issueItemsToRemove.length} issue items to remove.`);
-            let issueItemGroup = null; // Store the parent group
+            
+            // Process each issue item individually
             issueItemsToRemove.forEach(item => {
-                if (!issueItemGroup) {
-                    issueItemGroup = item.closest('.issue-group'); // Find the parent group once
+                // Get the parent group for this item
+                const issueItemGroup = item.closest('.issue-group');
+                
+                // Remove the specific issue item
+                item.remove();
+                issuesRemoved = true;
+                
+                // Check if this was the last issue in its group
+                if (issueItemGroup) {
+                    const remainingIssues = issueItemGroup.querySelectorAll('.issue-item');
+                    if (!remainingIssues || remainingIssues.length === 0) {
+                        // If no issues left in this group, remove the whole group (header + issues)
+                        issueItemGroup.remove();
+                    }
                 }
-                item.remove(); // Remove each matching issue item block
             });
-
-            // Check if the parent group has any remaining issue items
-            const remainingIssues = issueItemGroup?.querySelectorAll('.issue-item'); // Use correct class
-            if (issueItemGroup && (!remainingIssues || remainingIssues.length === 0)) {
-                // If no issues left in this group, remove the whole group (header + issues)
-                issueItemGroup.remove();
-            }
 
             // Update the total issue count in the summary
             const totalIssues = activePanel.querySelectorAll('.issue-item').length; // Use correct class
@@ -772,40 +792,69 @@ class ValidationUIManager {
                     issuesContainer.innerHTML = '<p class="no-issues">All issues resolved! 🎉</p>';
                 }
             }
-            
-            // Also update the stored validation results
-            if (feedId) {
-                const results = this.validationResults[feedId];
-                if (results && results.issues) {
-                    // Remove the issue from the stored results
-                    results.issues = results.issues.filter(issue => {
-                        const issueOfferId = issue.offerId || issue['Offer ID'];
-                        return !(issueOfferId === offerId && issue.field === fieldName);
-                    });
-                    console.log(`[ValidationUIManager] Updated stored validation results for feed ${feedId}. Now has ${results.issues.length} issues.`);
-                }
-            }
-            
-            return true;
         } else {
             console.warn(`[ValidationUIManager] Could not find issue item to remove with selector: ${selector}`);
-            
-            // Even if we couldn't find the issue in the DOM, still update the data
-            // Call the issue manager to update the validation results data
-            let dataUpdateSuccess = false;
-            if (this.issueManager && typeof this.issueManager.markIssueAsFixed === 'function') {
-                console.log(`[ValidationUIManager] Calling issueManager.markIssueAsFixed to update data`);
-                dataUpdateSuccess = this.issueManager.markIssueAsFixed(
-                    offerId,
-                    fieldName,
-                    this.validationResults,
-                    activePanel
-                );
-                console.log(`[ValidationUIManager] issueManager.markIssueAsFixed result: ${dataUpdateSuccess}`);
-            }
-            
-            return dataUpdateSuccess;
         }
+        
+        // Also try to find and remove issues with the FeedErrorUIManager if available
+        let feedErrorUIManagerSuccess = false;
+        if (window.FeedErrorUIManager) {
+            const feedErrorUIManager = this.managers.feedErrorUIManager || window.feedErrorUIManager;
+            if (feedErrorUIManager && typeof feedErrorUIManager.markIssueAsFixed === 'function') {
+                console.log(`[ValidationUIManager] Calling FeedErrorUIManager.markIssueAsFixed`);
+                feedErrorUIManagerSuccess = feedErrorUIManager.markIssueAsFixed(offerId, fieldName);
+                console.log(`[ValidationUIManager] FeedErrorUIManager.markIssueAsFixed result: ${feedErrorUIManagerSuccess}`);
+            }
+        }
+        
+        // Update the stored validation results
+        if (feedId) {
+            const results = this.validationResults[feedId];
+            if (results && results.issues) {
+                // Store the original length to check if any issues were removed
+                const originalLength = results.issues.length;
+                
+                // Remove the issue from the stored results
+                results.issues = results.issues.filter(issue => {
+                    const issueOfferId = issue.offerId || issue['Offer ID'];
+                    const issueField = issue.field || '';
+                    return !(
+                        // Match by offerId and field
+                        (issueOfferId === offerId && issueField === fieldName) ||
+                        // Or match by rowIndex and field
+                        (issue.rowIndex === validatorRowIndex && issueField === fieldName)
+                    );
+                });
+                
+                // Check if any issues were removed
+                const issuesRemovedFromData = results.issues.length < originalLength;
+                if (issuesRemovedFromData) {
+                    console.log(`[ValidationUIManager] Removed ${originalLength - results.issues.length} issues from stored validation results for feed ${feedId}.`);
+                }
+                
+                // Update the issueManager's mapping
+                if (this.issueManager) {
+                    // Re-populate the offerId to validator row index map
+                    this.issueManager.populateOfferIdMap(results.issues);
+                }
+            }
+        }
+        
+        // Call the issue manager to update the validation results data as a fallback
+        let issueManagerSuccess = false;
+        if (this.issueManager && typeof this.issueManager.markIssueAsFixed === 'function') {
+            console.log(`[ValidationUIManager] Calling issueManager.markIssueAsFixed to update data`);
+            issueManagerSuccess = this.issueManager.markIssueAsFixed(
+                offerId,
+                fieldName,
+                this.validationResults,
+                activePanel
+            );
+            console.log(`[ValidationUIManager] issueManager.markIssueAsFixed result: ${issueManagerSuccess}`);
+        }
+        
+        // Return true if any of the removal methods succeeded
+        return issuesRemoved || feedErrorUIManagerSuccess || issueManagerSuccess;
     }
 
     /**

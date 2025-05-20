@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Validation Modal Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        
+        .button {
+            padding: 8px 16px;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        .button:hover {
+            background-color: #0055aa;
+        }
+        
+        .secondary {
+            background-color: #6c757d;
+        }
+        
+        .field-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .editable-field {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            width: 100%;
+            min-height: 20px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        
+        .error-highlight {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .success-highlight {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .field-error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+        
+        .field-success {
+            color: #28a745;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+        
+        /* Validation Modal Styles */
+        .floating-validation-panel {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            width: 400px;
+            max-width: 90vw;
+            max-height: 80vh;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .panel-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+        
+        .close-panel {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .validation-summary {
+            padding: 10px 15px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .issue-count {
+            font-weight: bold;
+        }
+        
+        .has-issues {
+            color: #dc3545;
+        }
+        
+        .feed-id {
+            color: #6c757d;
+        }
+        
+        .validation-status {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.875rem;
+        }
+        
+        .validation-status.valid {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .validation-status.invalid {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .issues-container {
+            padding: 15px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        
+        .issues-list h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        
+        .issue-group {
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .issue-group-header {
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .row-link {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+        
+        .issue-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .issue-severity {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            margin-right: 8px;
+            text-transform: uppercase;
+        }
+        
+        .issue-item.warning .issue-severity {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .issue-field {
+            color: #6c757d;
+            font-size: 0.875rem;
+            margin-left: 8px;
+        }
+        
+        .no-issues {
+            color: #28a745;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Validation Modal Fix Test</h1>
+        
+        <div>
+            <button id="showValidationModal" class="button">Show Validation Modal</button>
+            <button id="clearValidationModal" class="button secondary">Clear Validation Modal</button>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <div class="field-container">
+                <div class="field-label">Title:</div>
+                <div id="title" class="editable-field error-highlight" contenteditable="true" data-field="title" data-offer-id="PROD001">Gaming Mouse</div>
+                <div id="titleError" class="field-error">Title too short (12 chars). Minimum 30 characters recommended.</div>
+                <div id="titleSuccess" class="field-success" style="display: none;">Title meets requirements</div>
+            </div>
+            
+            <div class="field-container">
+                <div class="field-label">Description:</div>
+                <div id="description" class="editable-field error-highlight" contenteditable="true" data-field="description" data-offer-id="PROD001">A great gaming mouse with RGB lighting.</div>
+                <div id="descriptionError" class="field-error">Description too short (38 chars). Minimum 90 characters recommended.</div>
+                <div id="descriptionSuccess" class="field-success" style="display: none;">Description meets requirements</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get DOM elements
+            const title = document.getElementById('title');
+            const description = document.getElementById('description');
+            const titleError = document.getElementById('titleError');
+            const titleSuccess = document.getElementById('titleSuccess');
+            const descriptionError = document.getElementById('descriptionError');
+            const descriptionSuccess = document.getElementById('descriptionSuccess');
+            const showValidationModalBtn = document.getElementById('showValidationModal');
+            const clearValidationModalBtn = document.getElementById('clearValidationModal');
+            
+            // Set up event listeners
+            title.addEventListener('input', function() {
+                validateField(this, 'title', titleError, titleSuccess);
+            });
+            
+            description.addEventListener('input', function() {
+                validateField(this, 'description', descriptionError, descriptionSuccess);
+            });
+            
+            showValidationModalBtn.addEventListener('click', showValidationModal);
+            clearValidationModalBtn.addEventListener('click', clearValidationModal);
+            
+            /**
+             * Validates a field and updates the UI
+             */
+            function validateField(field, fieldType, errorElement, successElement) {
+                const content = field.textContent;
+                const offerId = field.dataset.offerId;
+                
+                // Define validation rules
+                const minLength = fieldType === 'title' ? 30 : 90;
+                const maxLength = fieldType === 'title' ? 150 : 5000;
+                
+                // Check length
+                const length = content.length;
+                const isValid = length >= minLength && length <= maxLength;
+                
+                // Update UI
+                if (isValid) {
+                    // Remove error highlight
+                    field.classList.remove('error-highlight');
+                    field.classList.add('success-highlight');
+                    
+                    // Hide error message
+                    errorElement.style.display = 'none';
+                    
+                    // Show success message
+                    successElement.textContent = `${fieldType.charAt(0).toUpperCase() + fieldType.slice(1)} meets requirements (${length} characters)`;
+                    successElement.style.display = 'block';
+                    
+                    // Update validation modal if it exists
+                    updateValidationModal(offerId, fieldType);
+                } else {
+                    // Add error highlight
+                    field.classList.remove('success-highlight');
+                    field.classList.add('error-highlight');
+                    
+                    // Show error message
+                    errorElement.textContent = `${fieldType.charAt(0).toUpperCase() + fieldType.slice(1)} too short (${length} chars). Minimum ${minLength} characters recommended.`;
+                    errorElement.style.display = 'block';
+                    
+                    // Hide success message
+                    successElement.style.display = 'none';
+                }
+                
+                return isValid;
+            }
+            
+            /**
+             * Shows the validation modal with the current validation issues
+             */
+            function showValidationModal() {
+                // Remove any existing validation modal
+                clearValidationModal();
+                
+                // Create validation issues based on current field states
+                const issues = [];
+                
+                // Check title
+                if (!validateField(title, 'title', titleError, titleSuccess)) {
+                    issues.push({
+                        type: 'warning',
+                        message: `Title too short (${title.textContent.length} chars). Minimum 30 characters recommended.`,
+                        severity: 'warning',
+                        rowIndex: 1,
+                        field: 'title',
+                        offerId: 'PROD001'
+                    });
+                }
+                
+                // Check description
+                if (!validateField(description, 'description', descriptionError, descriptionSuccess)) {
+                    issues.push({
+                        type: 'warning',
+                        message: `Description too short (${description.textContent.length} chars). Minimum 90 characters recommended.`,
+                        severity: 'warning',
+                        rowIndex: 1,
+                        field: 'description',
+                        offerId: 'PROD001'
+                    });
+                }
+                
+                // Create the validation modal
+                createValidationModal('TEST-FEED-001', issues);
+            }
+            
+            /**
+             * Creates a validation modal with the provided issues
+             */
+            function createValidationModal(feedId, issues) {
+                // Create the modal element
+                const modal = document.createElement('div');
+                modal.className = 'floating-validation-panel';
+                modal.dataset.feedId = feedId;
+                
+                // Create the modal content
+                const issueCount = issues.length;
+                const isValid = issueCount === 0;
+                
+                modal.innerHTML = `
+                    <div class="panel-header">
+                        <h3>Validation Issues</h3>
+                        <button class="close-panel" title="Close Panel">&times;</button>
+                    </div>
+                    <div class="validation-summary">
+                        <span class="issue-count ${issueCount > 0 ? 'has-issues' : ''}">${issueCount} Issues Found</span>
+                        <span class="feed-id">Feed ID: ${feedId}</span>
+                        <span class="validation-status ${isValid ? 'valid' : 'invalid'}">${isValid ? 'Feed Valid' : 'Feed Invalid'}</span>
+                    </div>
+                    <div class="issues-container">
+                        ${formatIssuesList(issues)}
+                    </div>
+                `;
+                
+                // Add event listener to close button
+                const closeBtn = modal.querySelector('.close-panel');
+                closeBtn.addEventListener('click', function() {
+                    modal.remove();
+                });
+                
+                // Add the modal to the document
+                document.body.appendChild(modal);
+            }
+            
+            /**
+             * Formats the issues list for display in the modal
+             */
+            function formatIssuesList(issues) {
+                if (!issues || !issues.length) {
+                    return '<p class="no-issues">No issues found!</p>';
+                }
+                
+                // Group issues by row
+                const issuesByRow = {};
+                issues.forEach(issue => {
+                    const rowIndex = issue.rowIndex || 'unknown';
+                    if (!issuesByRow[rowIndex]) {
+                        issuesByRow[rowIndex] = [];
+                    }
+                    issuesByRow[rowIndex].push(issue);
+                });
+                
+                // Format the issues list
+                return `
+                    <div class="issues-list">
+                        <h4>Validation Issues</h4>
+                        ${Object.entries(issuesByRow).map(([rowIndex, rowIssues]) => `
+                            <div class="issue-group">
+                                <div class="issue-group-header">
+                                    <strong>Row ${rowIndex}</strong>
+                                    <a href="#" class="row-link" data-row="${rowIndex}">Go to Row</a>
+                                </div>
+                                ${rowIssues.map(issue => {
+                                    const offerId = issue.offerId || '';
+                                    return `
+                                    <div class="issue-item ${issue.type || 'error'}"
+                                         data-row="${rowIndex}"
+                                         data-field="${issue.field || 'general'}"
+                                         data-offer-id="${offerId}">
+                                        <span class="issue-severity">${issue.type || 'error'}</span>
+                                        <span class="issue-message">${issue.message || 'Unknown issue'}</span>
+                                        ${issue.field ? `<span class="issue-field">(Field: ${issue.field})</span>` : ''}
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            /**
+             * Updates the validation modal when a field is fixed
+             */
+            function updateValidationModal(offerId, fieldName) {
+                const modal = document.querySelector('.floating-validation-panel');
+                if (!modal) return;
+                
+                // Find all issue items for this offerId and field
+                const selector = `.issue-item[data-offer-id="${offerId}"][data-field="${fieldName}"]`;
+                const issueItems = modal.querySelectorAll(selector);
+                
+                if (issueItems.length === 0) return;
+                
+                // Store the parent row group of the first issue item
+                const rowGroup = issueItems[0].closest('.issue-group');
+                
+                // Remove all matching issue items
+                issueItems.forEach(item => item.remove());
+                
+                // If row group is empty, remove it
+                if (rowGroup && rowGroup.querySelectorAll('.issue-item').length === 0) {
+                    rowGroup.remove();
+                }
+                
+                // Update issue count in header
+                const remainingIssues = modal.querySelectorAll('.issue-item');
+                const issueCount = remainingIssues.length;
+                
+                const issueCountEl = modal.querySelector('.validation-summary .issue-count');
+                if (issueCountEl) {
+                    issueCountEl.textContent = `${issueCount} Issues Found`;
+                    issueCountEl.classList.toggle('has-issues', issueCount > 0);
+                }
+                
+                // Update validation status
+                const validationStatusEl = modal.querySelector('.validation-summary .validation-status');
+                if (validationStatusEl) {
+                    validationStatusEl.textContent = issueCount > 0 ? 'Feed Invalid' : 'Feed Valid';
+                    validationStatusEl.classList.toggle('valid', issueCount === 0);
+                    validationStatusEl.classList.toggle('invalid', issueCount > 0);
+                }
+                
+                // If no issues left, show success message
+                if (issueCount === 0) {
+                    const issuesContainer = modal.querySelector('.issues-container');
+                    if (issuesContainer) {
+                        issuesContainer.innerHTML = '<p class="no-issues">All issues resolved! 🎉</p>';
+                    }
+                }
+            }
+            
+            /**
+             * Clears the validation modal
+             */
+            function clearValidationModal() {
+                const modal = document.querySelector('.floating-validation-panel');
+                if (modal) {
+                    modal.remove();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
