@@ -202,8 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Hide loading state
                         document.body.classList.remove('is-loading');
                         
-                        // Show warning to user
-                        alert(`Feed has ${validationResult.issues.length} format issues. Please fix them before proceeding.`);
+                        // Log warning instead of showing alert
+                        console.log(`[DEBUG] Feed has ${validationResult.issues.length} format issues shown in Feed Status.`);
                         
                         return;
                     }

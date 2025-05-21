@@ -111,6 +111,62 @@ The AdBrain Feed Manager extension follows a modular architecture with specializ
 - Handles error cases in message passing
 - Provides a consistent interface for message communication
 
+### popup_simplified.js
+
+**Purpose**: Provides a simplified implementation of the popup functionality.
+
+**Functionality**:
+- Handles file input and preview
+- Manages feed validation
+- Displays validation results
+- Integrates with FeedErrorUIManager for format validation
+- Provides a streamlined user experience with fewer dependencies
+
+### popup_redesign.js
+
+**Purpose**: Handles the functionality for the redesigned popup layout.
+
+**Functionality**:
+- Initializes tab functionality
+- Manages feed status area
+- Initializes error UI components
+- Handles file input with custom styling
+- Displays feed errors in the feed status area
+- Provides a more user-friendly interface with horizontal controls
+
+### initialization_manager.js
+
+**Purpose**: Manages the initialization process of the application.
+
+**Functionality**:
+- Coordinates the initialization of all managers
+- Ensures managers are initialized in the correct order
+- Handles authentication state and UI setup
+- Provides error handling for initialization failures
+- Supports both synchronous and asynchronous initialization
+
+### manager_factory.js
+
+**Purpose**: Creates and initializes manager instances.
+
+**Functionality**:
+- Creates manager instances with proper dependency injection
+- Ensures managers are created in the correct order
+- Sets up cross-references between managers
+- Provides configuration options for mock implementations
+- Handles error cases when manager classes are missing
+
+### dom_manager.js
+
+**Purpose**: Manages DOM element references.
+
+**Functionality**:
+- Provides a clean interface for accessing DOM elements
+- Handles error checking and validation for DOM elements
+- Centralizes DOM element access across the application
+- Supports dynamic element creation and manipulation
+- Improves code maintainability by reducing direct DOM access
+
 ### direct_preview.js
 
 **Purpose**: Provides a standalone implementation of feed preview functionality.
@@ -123,6 +179,18 @@ The AdBrain Feed Manager extension follows a modular architecture with specializ
 - Includes a floating scroll bar for wide tables
 
 ## Manager Classes
+
+### FeedCoordinator (feed_coordinator.js)
+
+**Purpose**: Coordinates feed operations between different modules.
+
+**Functionality**:
+- Acts as the central orchestrator for feed loading, parsing, display, and validation
+- Handles file input and reading
+- Coordinates between FeedDisplayManager, ValidationUIManager, and other modules
+- Manages the feed preview workflow
+- Provides error handling for feed operations
+- Supports exporting corrected feed data
 
 ### FeedManager (feed_manager.js)
 
@@ -212,6 +280,30 @@ The AdBrain Feed Manager extension follows a modular architecture with specializ
 - Saves and loads templates
 - Applies templates to feed data
 - Provides UI for bulk actions
+
+### FeedDisplayManager (feed_display_manager.js)
+
+**Purpose**: Manages the display of feed data in the UI.
+
+**Functionality**:
+- Renders parsed data into HTML tables
+- Creates and manages editable cells
+- Implements character count indicators
+- Provides color coding for validation
+- Includes a floating scrollbar for wide tables
+- Handles row highlighting and navigation
+
+### FeedErrorUIManager (feed_error_ui_manager.js)
+
+**Purpose**: Manages the display of feed format errors in the UI.
+
+**Functionality**:
+- Displays feed format errors in the feed status area
+- Updates the UI when errors are fixed
+- Integrates with the existing validation system
+- Works with FeedFormatValidator to provide immediate feedback
+- Provides navigation to rows with errors
+- Supports error categorization and prioritization
 
 ### StatusBarManager (status_bar_manager.js)
 
@@ -368,9 +460,44 @@ The AdBrain Feed Manager extension follows a modular architecture with specializ
 - Provides detailed validation results
 - Supports rule testing and debugging
 
+### content_type_validator.js
+
+**Purpose**: Validates different content types in feed data.
+
+**Functionality**:
+- Provides validation rules for titles, descriptions, URLs, and other content types
+- Detects common issues like insufficient length, missing fields, and invalid formats
+- Offers suggestions for fixing validation issues
+- Supports different severity levels for validation issues
+- Provides detailed error messages for validation failures
+
+### feed_format_validator.js
+
+**Purpose**: Validates feed format before GMC validation.
+
+**Functionality**:
+- Detects common issues like missing required columns
+- Identifies malformed CSV structure
+- Validates empty required fields
+- Works with ContentTypeValidator and CSVParser
+- Provides early feedback on feed issues before GMC validation
+- Supports different validation rules for different feed types
+
+### csv_parser.js
+
+**Purpose**: Parses CSV text into structured data.
+
+**Functionality**:
+- Parses CSV text into an array of objects
+- Validates CSV structure and identifies basic issues
+- Supports different CSV formats and delimiters
+- Handles error cases like malformed CSV
+- Provides detailed error messages for parsing failures
+- Works with ContentTypeValidator for content validation
+
 ## Refactored Direct Validation Modules
 
-The monolithic `direct_validation.js` file has been refactored into six smaller, more focused modules to improve maintainability, testability, and extensibility. These modules work together to provide the direct validation functionality.
+The monolithic `direct_validation.js` file has been refactored into seven smaller, more focused modules to improve maintainability, testability, and extensibility. These modules work together to provide the direct validation functionality.
 
 ### direct-validation-core.js
 
@@ -467,6 +594,23 @@ The monolithic `direct_validation.js` file has been refactored into six smaller,
 - Styling may vary across browsers
 - Animation testing can be challenging
 
+### direct-validation-monitor.js
+
+**Purpose**: Provides monitoring and logging for direct validation.
+
+**Functionality**:
+- Tracks feature flag usage to monitor adoption
+- Records errors by module to identify problem areas
+- Measures performance metrics for validation operations
+- Helps identify issues during gradual rollout
+- Provides debugging information for troubleshooting
+- Supports A/B testing of new validation features
+
+**Potential Testing Issues**:
+- May add overhead to validation operations
+- Requires careful mocking in test environments
+- Integration with analytics systems may be complex
+
 ## Test Files
 
 The test files are designed to verify the functionality of each module independently and ensure they work together correctly.
@@ -532,6 +676,51 @@ The test files are designed to verify the functionality of each module independe
 - Hiding of loading overlay
 - Fallback functionality
 
+### Test Data Files
+
+The test data files in the `tests/test_data` directory are used for testing various aspects of the feed validation functionality:
+
+### empty_feed.csv
+
+**Purpose**: Tests handling of empty feeds.
+
+**Characteristics**:
+- Contains only headers, no data rows
+- Used to test empty feed detection
+- Verifies error handling for empty feeds
+- Tests UI feedback for empty feeds
+
+### large_feed.csv
+
+**Purpose**: Tests performance with large datasets.
+
+**Characteristics**:
+- Contains 1000+ product entries
+- Used for performance testing
+- Tests pagination and scrolling with large datasets
+- Verifies memory management with large feeds
+
+### malformed_feed.csv
+
+**Purpose**: Tests handling of malformed CSV files.
+
+**Characteristics**:
+- Contains formatting errors
+- Missing fields in some rows
+- Inconsistent delimiters
+- Tests error detection and reporting
+- Verifies UI feedback for malformed feeds
+
+### missing_fields_feed.csv
+
+**Purpose**: Tests validation of required fields.
+
+**Characteristics**:
+- Contains rows with missing required fields
+- All required columns exist but some cells are empty
+- Tests field-level validation
+- Verifies UI feedback for missing fields
+
 ### validation_firebase_handler.test.js
 
 **Purpose**: Tests Firebase interactions for validation.
@@ -594,20 +783,46 @@ The AdBrain Feed Manager extension follows a modular architecture where speciali
 
 1. **PopupManager** orchestrates all other managers and initializes them in the correct order.
 
-2. **FeedManager** and **ValidationUIManager** have a bidirectional relationship:
-   - FeedManager provides feed data to ValidationUIManager for validation
-   - ValidationUIManager navigates to specific rows in FeedManager when validation issues are found
+2. **InitializationManager** handles the initialization process:
+   - Creates a **ManagerFactory** instance
+   - Uses **ManagerFactory** to create and initialize all managers
+   - Ensures managers are initialized in the correct order
 
-3. **ValidationUIManager** coordinates three specialized validation managers:
+3. **ManagerFactory** creates manager instances:
+   - Uses **DOMManager** to get DOM element references
+   - Creates managers with proper dependency injection
+   - Sets up cross-references between managers
+
+4. **FeedCoordinator** replaces and enhances **FeedManager**:
+   - Coordinates between **FeedDisplayManager**, **ValidationUIManager**, and other modules
+   - Handles file input and reading
+   - Manages the feed preview workflow
+
+5. **FeedDisplayManager** handles the display aspects previously in **FeedManager**:
+   - Renders parsed data into HTML tables
+   - Creates and manages editable cells
+   - Implements character count indicators
+
+6. **ValidationUIManager** coordinates three specialized validation managers:
    - **ValidationFirebaseHandler** for Firebase interactions
    - **ValidationPanelManager** for UI panels
    - **ValidationIssueManager** for issue tracking
 
-4. **SearchManager** interacts with FeedManager to filter and display search results in the feed preview.
+7. **FeedErrorUIManager** works with **FeedFormatValidator**:
+   - Displays feed format errors in the UI
+   - Updates the UI when errors are fixed
+   - Integrates with the existing validation system
 
-5. **StatusBarManager** reflects the authentication state managed by the background script.
+8. **ContentTypeValidator** and **CSVParser** support **FeedFormatValidator**:
+   - **ContentTypeValidator** validates different content types
+   - **CSVParser** parses CSV text into structured data
+   - **FeedFormatValidator** uses both to validate feed format
 
-6. **SettingsManager** and **BulkActionsManager** interact with the authentication system to apply feature gating for pro features.
+9. **SearchManager** interacts with **FeedDisplayManager** to filter and display search results.
+
+10. **StatusBarManager** reflects the authentication state managed by the background script.
+
+11. **SettingsManager** and **BulkActionsManager** interact with the authentication system to apply feature gating for pro features.
 
 ### Refactored Direct Validation Module Relationships
 
@@ -643,6 +858,12 @@ The refactored direct validation modules have their own relationship structure:
    - Shows loading indicators during validation
    - Hides indicators when validation is complete
    - Works independently of other modules
+
+7. **DirectValidationMonitor** provides monitoring and logging:
+   - Tracks feature flag usage to monitor adoption
+   - Records errors by module to identify problem areas
+   - Measures performance metrics for validation operations
+   - Helps identify issues during gradual rollout
 
 ### Integration with Original Managers
 

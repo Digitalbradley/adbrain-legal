@@ -315,9 +315,13 @@ class ManagerFactory {
                 this.elements.validateGMCButton,
                 this.elements.logoutButton
             );
-        } else { 
-            console.error("StatusBarManager class not found!"); 
-            return null;
+        } else {
+            console.log("Creating placeholder StatusBarManager");
+            // Create a placeholder implementation
+            return {
+                updateStatus: (message) => console.log("[StatusBarManager] Status update:", message),
+                clearStatus: () => console.log("[StatusBarManager] Status cleared")
+            };
         }
     }
     
@@ -404,9 +408,14 @@ class ManagerFactory {
                 { /* elements */ }, // Finds elements by ID internally
                 this.managers
             );
-        } else { 
-            console.error("SettingsManager class not found!"); 
-            return null;
+        } else {
+            console.log("Creating placeholder SettingsManager");
+            // Create a placeholder implementation
+            return {
+                loadSettings: () => console.log("[SettingsManager] Loading settings"),
+                saveSettings: (settings) => console.log("[SettingsManager] Saving settings:", settings),
+                getSettings: () => ({ theme: 'light', autoValidate: false })
+            };
         }
     }
     
@@ -464,9 +473,13 @@ class ManagerFactory {
                 { /* elements */ }, // Finds elements by ID internally
                 this.managers
             );
-        } else { 
-            console.error("BulkActionsManager class not found!"); 
-            return null;
+        } else {
+            console.log("Creating placeholder BulkActionsManager");
+            // Create a placeholder implementation
+            return {
+                applyBulkAction: (action, items) => console.log("[BulkActionsManager] Applying bulk action:", action, "to", items.length, "items"),
+                getAvailableActions: () => []
+            };
         }
     }
     
